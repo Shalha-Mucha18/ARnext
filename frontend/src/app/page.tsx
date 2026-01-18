@@ -619,7 +619,6 @@ export default function Home() {
       const url = new URL(`${apiBase}/v1/top-customers`);
       if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
       if (selectedMonth) url.searchParams.append("month", selectedMonth);
-      else if (selectedYear) url.searchParams.append("year", selectedYear);
       const res = await fetch(url.toString());
       if (res.ok) {
         const data = await res.json();

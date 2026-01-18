@@ -22,7 +22,7 @@ services:
       - backend_data:/app/data
     ports:
       - "8000:8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
     env_file:
       - .env
     environment:
@@ -37,7 +37,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        NEXT_PUBLIC_API_BASE_URL: http://203.202.241.210:8000
     container_name: steel_ai_frontend
     ports:
       - "3000:3000"

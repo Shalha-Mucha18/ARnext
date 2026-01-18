@@ -1,0 +1,28 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+sqlalchemy
+psycopg2-binary
+python-dotenv
+python-multipart
+pandas
+httpx
+requests
+
+# AI & LangChain
+groq
+langchain
+langchain-community
+langchain-core
+langchain-groq
+langchain-classic
+langchain-experimental
+
+# Data
+chromadb
+
+# Utils
+redis
+tenacity
+watchdog

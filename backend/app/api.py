@@ -269,11 +269,12 @@ def health():
     return {"status": "ok"}
 
 @router.get("/v1/ytd-sales")
-def get_ytd_sales(unit_id: str = None):
+def get_ytd_sales(unit_id: str = None, fiscal_year: bool = False):
     """Get Year-to-Date sales comparison: Current Year vs Last Year.
     
     Args:
         unit_id: Optional business unit filter (dynamic)
+        fiscal_year: If True, use fiscal year (July-June) instead of calendar year
     
     Returns:
         Current YTD and Last YTD metrics with growth analysis
@@ -287,15 +288,37 @@ def get_ytd_sales(unit_id: str = None):
         
         # Get current date for YTD calculations
         today = date.today()
-        current_year = today.year
-        last_year = current_year - 1
         
-        # Format dates for SQL
-        current_ytd_start = f"{current_year}-01-01"
-        current_ytd_end = today.strftime("%Y-%m-%d")
-        
-        last_ytd_start = f"{last_year}-01-01"
-        last_ytd_end = f"{last_year}-{today.month:02d}-{today.day:02d}"
+        if fiscal_year:
+            # Fiscal Year: July 1 - June 30
+            # If today is before July, we're in previous fiscal year
+            if today.month < 7:
+                current_fy_year = today.year
+                current_ytd_start = f"{today.year - 1}-07-01"
+            else:
+                current_fy_year = today.year + 1
+                current_ytd_start = f"{today.year}-07-01"
+            
+            current_ytd_end = today.strftime("%Y-%m-%d")
+            
+            # Last fiscal year - same period
+            last_fy_year = current_fy_year - 1
+            if today.month < 7:
+                last_ytd_start = f"{today.year - 2}-07-01"
+                last_ytd_end = f"{today.year - 1}-{today.month:02d}-{today.day:02d}"
+            else:
+                last_ytd_start = f"{today.year - 1}-07-01"
+                last_ytd_end = f"{today.year - 1}-{today.month:02d}-{today.day:02d}"
+        else:
+            # Calendar Year: January 1 - December 31
+            current_year = today.year
+            last_year = current_year - 1
+            
+            current_ytd_start = f"{current_year}-01-01"
+            current_ytd_end = today.strftime("%Y-%m-%d")
+            
+            last_ytd_start = f"{last_year}-01-01"
+            last_ytd_end = f"{last_year}-{today.month:02d}-{today.day:02d}"
         
         # Current Year YTD Query
         current_ytd_query = f'''
@@ -394,11 +417,12 @@ def get_ytd_sales(unit_id: str = None):
 
 
 @router.get("/v1/ytd-sales-insights")
-def get_ytd_sales_insights(unit_id: str = None):
+def get_ytd_sales_insights(unit_id: str = None, fiscal_year: bool = False):
     """Generate solution-focused CEO insights for YTD performance on-demand.
     
     Args:
         unit_id: Optional business unit filter (dynamic)
+        fiscal_year: If True, use fiscal year (July-June) instead of calendar year
     
     Returns:
         AI-generated strategic insights with actionable recommendations
@@ -573,6 +597,272 @@ RULES:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/v1/mtd-stats")
+def get_mtd_stats(unit_id: str = None, month: str = None):
+    """
+    Get Month-to-Date statistics comparing current month vs previous month.
+    
+    Args:
+        unit_id: Optional business unit filter
+        month: Optional month in YYYY-MM format (defaults to current month)
+    
+    Returns:
+        {
+            "current_month": {"total_quantity": float, "total_orders": int, "month": str, "year": int},
+            "previous_month": {"total_quantity": float, "total_orders": int, "month": str, "year": int},
+            "growth_metrics": {"quantity_growth_pct": float, "order_growth_pct": float}
+        }
+    """
+    from db.engine import db
+    import datetime
+    from dateutil.relativedelta import relativedelta
+    
+    try:
+        # Determine target month
+        if month:
+            try:
+                target_date = datetime.datetime.strptime(month, "%Y-%m").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+        else:
+            target_date = datetime.date.today()
+        
+        # Calculate current month range
+        current_month_start = target_date.replace(day=1)
+        if current_month_start.month == 12:
+            current_month_end = current_month_start.replace(year=current_month_start.year + 1, month=1, day=1)
+        else:
+            current_month_end = current_month_start.replace(month=current_month_start.month + 1, day=1)
+        
+        # Calculate previous month range
+        prev_month_start = current_month_start - relativedelta(months=1)
+        prev_month_end = current_month_start
+        
+        # Build unit filter
+        unit_filter = f"AND unit_id = '{unit_id}'" if unit_id else ""
+        
+        # Query current month stats
+        current_query = f"""
+        SELECT 
+            COALESCE(SUM(delivery_qty), 0) as total_quantity,
+            COUNT(*) as total_orders
+        FROM public.tbldeliveryinfo
+        WHERE delivery_date >= DATE '{current_month_start}'
+          AND delivery_date < DATE '{current_month_end}'
+          {unit_filter}
+        """
+        
+        current_result = eval(db.run(current_query))
+        current_qty = float(current_result[0][0]) if current_result and current_result[0][0] else 0.0
+        current_orders = int(current_result[0][1]) if current_result and current_result[0][1] else 0
+        
+        # Query previous month stats
+        prev_query = f"""
+        SELECT 
+            COALESCE(SUM(delivery_qty), 0) as total_quantity,
+            COUNT(*) as total_orders
+        FROM public.tbldeliveryinfo
+        WHERE delivery_date >= DATE '{prev_month_start}'
+          AND delivery_date < DATE '{prev_month_end}'
+          {unit_filter}
+        """
+        
+        prev_result = eval(db.run(prev_query))
+        prev_qty = float(prev_result[0][0]) if prev_result and prev_result[0][0] else 0.0
+        prev_orders = int(prev_result[0][1]) if prev_result and prev_result[0][1] else 0
+        
+        # Calculate growth metrics
+        qty_growth = ((current_qty - prev_qty) / prev_qty * 100) if prev_qty > 0 else 0.0
+        order_growth = ((current_orders - prev_orders) / prev_orders * 100) if prev_orders > 0 else 0.0
+        
+        return {
+            "current_month": {
+                "total_quantity": round(current_qty, 2),
+                "total_orders": current_orders,
+                "month": current_month_start.strftime("%B"),
+                "year": current_month_start.year
+            },
+            "previous_month": {
+                "total_quantity": round(prev_qty, 2),
+                "total_orders": prev_orders,
+                "month": prev_month_start.strftime("%B"),
+                "year": prev_month_start.year
+            },
+            "growth_metrics": {
+                "quantity_growth_pct": round(qty_growth, 2),
+                "order_growth_pct": round(order_growth, 2)
+            }
+        }
+    
+    except Exception as e:
+        print(f"Error in MTD stats: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/v1/mtd-insights")
+def get_mtd_insights(unit_id: str = None, month: str = None):
+    """Generate AI insights for MTD performance."""
+    from db.engine import db
+    import datetime
+    from dateutil.relativedelta import relativedelta
+    from core.core import get_core
+    
+    try:
+        # Determine target month
+        if month:
+            try:
+                target_date = datetime.datetime.strptime(month, "%Y-%m").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+        else:
+            target_date = datetime.date.today()
+        
+        # Calculate current month range
+        current_month_start = target_date.replace(day=1)
+        if current_month_start.month == 12:
+            current_month_end = current_month_start.replace(year=current_month_start.year + 1, month=1, day=1)
+        else:
+            current_month_end = current_month_start.replace(month=current_month_start.month + 1, day=1)
+        
+        # Calculate previous month range
+        prev_month_start = current_month_start - relativedelta(months=1)
+        prev_month_end = current_month_start
+        
+        # Build unit filter
+        unit_filter = f"AND unit_id = '{unit_id}'" if unit_id else ""
+        
+        # Query current month stats
+        current_query = f"""
+        SELECT 
+            COALESCE(SUM(delivery_qty), 0) as total_quantity,
+            COUNT(*) as total_orders
+        FROM public.tbldeliveryinfo
+        WHERE delivery_date >= DATE '{current_month_start}'
+          AND delivery_date < DATE '{current_month_end}'
+          {unit_filter}
+        """
+        
+        current_result = eval(db.run(current_query))
+        current_qty = float(current_result[0][0]) if current_result and current_result[0][0] else 0.0
+        current_orders = int(current_result[0][1]) if current_result and current_result[0][1] else 0
+        
+        # Query previous month stats
+        prev_query = f"""
+        SELECT 
+            COALESCE(SUM(delivery_qty), 0) as total_quantity,
+            COUNT(*) as total_orders
+        FROM public.tbldeliveryinfo
+        WHERE delivery_date >= DATE '{prev_month_start}'
+          AND delivery_date < DATE '{prev_month_end}'
+          {unit_filter}
+        """
+        
+        prev_result = eval(db.run(prev_query))
+        prev_qty = float(prev_result[0][0]) if prev_result and prev_result[0][0] else 0.0
+        prev_orders = int(prev_result[0][1]) if prev_result and prev_result[0][1] else 0
+        
+        # Calculate growth
+        qty_growth = ((current_qty - prev_qty) / prev_qty * 100) if prev_qty > 0 else 0.0
+        order_growth = ((current_orders - prev_orders) / prev_orders * 100) if prev_orders > 0 else 0.0
+        
+        # Determine status
+        is_growing = order_growth >= 0 and qty_growth >= 0
+        is_declining = order_growth < -10 or qty_growth < -10
+        
+        # Get month names
+        current_month_name = current_month_start.strftime("%B %Y")
+        prev_month_name = prev_month_start.strftime("%B %Y")
+        
+        # Create solution-focused prompt
+        core = get_core()
+        
+        if is_declining:
+            prompt = f"""You are a strategic business advisor. Analyze MTD performance and provide SOLUTION-FOCUSED recommendations.
+
+📊 PERFORMANCE DATA:
+Current Month ({current_month_name}): {current_orders:,} orders, {current_qty:,.0f} MT
+Previous Month ({prev_month_name}): {prev_orders:,} orders, {prev_qty:,.0f} MT
+Growth: {order_growth:+.1f}% orders, {qty_growth:+.1f}% quantity
+
+🎯 TASK: Provide insights in this EXACT format (keep under 120 words total):
+
+🔴 ALERT: [One-line status]
+
+💡 KEY OPPORTUNITY:
+[One sentence on recovery opportunity]
+
+✅ IMMEDIATE ACTIONS:
+1. [Specific action with target]
+2. [Specific action with outcome]
+
+📈 EXPECTED IMPACT:
+[Quantified outcome]
+
+RULES: Focus on THIS MONTH recovery, be specific, use numbers, keep under 120 words"""
+        elif is_growing:
+            prompt = f"""You are a strategic business advisor. Analyze MTD performance and provide SOLUTION-FOCUSED recommendations.
+
+📊 PERFORMANCE DATA:
+Current Month ({current_month_name}): {current_orders:,} orders, {current_qty:,.0f} MT
+Previous Month ({prev_month_name}): {prev_orders:,} orders, {prev_qty:,.0f} MT
+Growth: {order_growth:+.1f}% orders, {qty_growth:+.1f}% quantity
+
+🎯 TASK: Provide insights in this EXACT format (keep under 120 words total):
+
+✅ STATUS: [One-line positive status]
+
+💡 KEY OPPORTUNITY:
+[One sentence on accelerating growth]
+
+✅ IMMEDIATE ACTIONS:
+1. [Action to capitalize on momentum]
+2. [Action to expand success]
+
+📈 EXPECTED IMPACT:
+[Quantified outcome]
+
+RULES: Focus on ACCELERATION, be specific, use numbers, keep under 120 words"""
+        else:
+            prompt = f"""You are a strategic business advisor. Analyze MTD performance and provide SOLUTION-FOCUSED recommendations.
+
+📊 PERFORMANCE DATA:
+Current Month ({current_month_name}): {current_orders:,} orders, {current_qty:,.0f} MT
+Previous Month ({prev_month_name}): {prev_orders:,} orders, {prev_qty:,.0f} MT
+Growth: {order_growth:+.1f}% orders, {qty_growth:+.1f}% quantity
+
+🎯 TASK: Provide insights in this EXACT format (keep under 120 words total):
+
+📊 STATUS: [One-line status]
+
+💡 KEY FOCUS:
+[One sentence on maintaining stability]
+
+✅ RECOMMENDED ACTIONS:
+1. [Action to maintain performance]
+2. [Action to find growth]
+
+RULES: Focus on STABILITY and GROWTH, be specific, keep under 120 words"""
+        
+        insights = core.general_response(prompt)
+        return {
+            "insights": insights,
+            "generated_at": datetime.datetime.now().isoformat(),
+            "performance_status": "declining" if is_declining else ("growing" if is_growing else "stable"),
+            "metrics": {
+                "current_orders": current_orders,
+                "current_quantity": current_qty,
+                "order_growth_pct": round(order_growth, 1),
+                "quantity_growth_pct": round(qty_growth, 1)
+            }
+        }
+    
+    except Exception as e:
+        print(f"Error generating MTD insights: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/top-customers-2025")
 def get_top_customers(unit_id: str = None):
     """Get top 10 customers by revenue for 2025."""
@@ -629,21 +919,38 @@ def get_top_territories(unit_id: str = None):
 
 
 @router.get("/v1/regional-insights")
-def get_regional_insights(unit_id: str = None, month: str = None):
+def get_regional_insights(unit_id: str = None, month: str = None, year: str = None):
     """Get regional sales data (Top 5 / Bottom 5)."""
     from db.engine import db
     import datetime
     
     try:
-        # Date Logic
+        # Date Logic with year filter support
         today = datetime.date.today()
-        if month:
+        
+        if year and month:
+            # Specific month in specific year
+            # month is in format "YYYY-MM", extract just the month part
+            if '-' in month:
+                month_part = month.split('-')[1]
+            else:
+                month_part = month
+            target_date = datetime.datetime.strptime(f"{year}-{month_part}", "%Y-%m").date()
+            start_date = target_date.replace(day=1)
+            next_month_val = start_date.replace(day=28) + datetime.timedelta(days=4)
+            end_date = next_month_val.replace(day=1)
+        elif year:
+            # Entire year
+            start_date = datetime.date(int(year), 1, 1)
+            end_date = datetime.date(int(year) + 1, 1, 1)
+        elif month:
+            # Specific month in current year
             target_date = datetime.datetime.strptime(month, "%Y-%m").date()
             start_date = target_date.replace(day=1)
-            # End date: First day of next month
             next_month_val = start_date.replace(day=28) + datetime.timedelta(days=4)
             end_date = next_month_val.replace(day=1)
         else:
+            # Current month
             start_date = today.replace(day=1)
             next_month_val = start_date.replace(day=28) + datetime.timedelta(days=4)
             end_date = next_month_val.replace(day=1)
@@ -824,7 +1131,7 @@ def generate_regional_insights(unit_id: str = None, month: str = None):
         return {"error": f"Could not generate insights: {str(e)}"}
 
 @router.get("/v1/area-insights")
-def get_area_insights(unit_id: str = None, month: str = None):
+def get_area_insights(unit_id: str = None, month: str = None, year: str = None):
     """Get area sales data (Top 5 / Bottom 5) with optimized query."""
     from db.engine import db
     import datetime
@@ -834,21 +1141,45 @@ def get_area_insights(unit_id: str = None, month: str = None):
     logger = logging.getLogger("area_insights")
     
     try:
-        # Date Logic
+        # Date Logic with year filter support
         today = datetime.date.today()
-        if month:
-            # Clean inputs
-            month = month.strip()
+        
+        if year and month:
+            # Specific month in specific year
             try:
-                target_date = datetime.datetime.strptime(month, "%Y-%m").date()
+                # month is in format "YYYY-MM", extract just the month part
+                if '-' in month:
+                    month_part = month.split('-')[1]
+                else:
+                    month_part = month
+                target_date = datetime.datetime.strptime(f"{year}-{month_part}", "%Y-%m").date()
                 start_date = target_date.replace(day=1)
-                # Logic to get next month's first day
                 if start_date.month == 12:
                     end_date = start_date.replace(year=start_date.year + 1, month=1, day=1)
                 else:
                     end_date = start_date.replace(month=start_date.month + 1, day=1)
             except ValueError:
-                # Fallback if format is wrong
+                logger.error(f"Invalid year-month combination: {year}-{month}")
+                start_date = today.replace(day=1)
+                if start_date.month == 12:
+                    end_date = start_date.replace(year=start_date.year + 1, month=1, day=1)
+                else:
+                    end_date = start_date.replace(month=start_date.month + 1, day=1)
+        elif year:
+            # Entire year
+            start_date = datetime.date(int(year), 1, 1)
+            end_date = datetime.date(int(year) + 1, 1, 1)
+        elif month:
+            # Specific month in current year
+            month = month.strip()
+            try:
+                target_date = datetime.datetime.strptime(month, "%Y-%m").date()
+                start_date = target_date.replace(day=1)
+                if start_date.month == 12:
+                    end_date = start_date.replace(year=start_date.year + 1, month=1, day=1)
+                else:
+                    end_date = start_date.replace(month=start_date.month + 1, day=1)
+            except ValueError:
                 logger.error(f"Invalid month format received: {month}")
                 start_date = today.replace(day=1)
                 if start_date.month == 12:
@@ -856,6 +1187,7 @@ def get_area_insights(unit_id: str = None, month: str = None):
                 else:
                     end_date = start_date.replace(month=start_date.month + 1, day=1)
         else:
+            # Current month
             start_date = today.replace(day=1)
             if start_date.month == 12:
                 end_date = start_date.replace(year=start_date.year + 1, month=1, day=1)
@@ -975,20 +1307,38 @@ def generate_area_insights(request: dict):
         return {"error": f"Could not generate insights: {str(e)}"}
 
 @router.get("/v1/top-customers")
-def get_top_customers(unit_id: str = None, month: str = None):
+def get_top_customers(unit_id: str = None, month: str = None, year: str = None):
     """Get top 10 customers by volume."""
     from db.engine import db
     import datetime
     
     try:
-        # Date Logic
+        # Date Logic with year filter support
         today = datetime.date.today()
-        if month:
+        
+        if year and month:
+            # Specific month in specific year
+            # month is in format "YYYY-MM", extract just the month part
+            if '-' in month:
+                month_part = month.split('-')[1]
+            else:
+                month_part = month
+            target_date = datetime.datetime.strptime(f"{year}-{month_part}", "%Y-%m").date()
+            start_date = target_date.replace(day=1)
+            next_month_val = start_date.replace(day=28) + datetime.timedelta(days=4)
+            end_date = next_month_val.replace(day=1)
+        elif year:
+            # Entire year
+            start_date = datetime.date(int(year), 1, 1)
+            end_date = datetime.date(int(year) + 1, 1, 1)
+        elif month:
+            # Specific month in current year
             target_date = datetime.datetime.strptime(month, "%Y-%m").date()
             start_date = target_date.replace(day=1)
             next_month_val = start_date.replace(day=28) + datetime.timedelta(days=4)
             end_date = next_month_val.replace(day=1)
         else:
+            # Current month
             start_date = today.replace(day=1)
             next_month_val = start_date.replace(day=28) + datetime.timedelta(days=4)
             end_date = next_month_val.replace(day=1)
@@ -1921,34 +2271,61 @@ def get_concentration_risk_insights(unit_id: str = None, month: str = None):
 
 
 @router.get("/v1/territory-performance")
-def get_territory_performance(unit_id: str = None, month: str = None):
+def get_territory_performance(unit_id: str = None, month: str = None, year: str = None):
     """Get top 5 and bottom 5 territories and dealers using optimized CTE query."""
     from db.engine import db
     import datetime
     
     try:
-        # Get target month
-        if not month:
-            latest_month_query = 'SELECT MAX(TO_CHAR("delivery_date", \'YYYY-MM\')) FROM tbldeliveryinfo'
-            latest_month_result = eval(db.run(latest_month_query))
-            if latest_month_result and latest_month_result[0][0]:
-                month = latest_month_result[0][0]
+        # Date Logic with year filter support
+        today = datetime.date.today()
         
-        # Parse month to get date range
-        if month:
-            year, month_num = month.split('-')
-            start_date = f"{year}-{month_num.zfill(2)}-01"
-            if int(month_num) == 12:
-                end_date = f"{int(year)+1}-01-01"
+        if year and month:
+            # Specific month in specific year
+            # month is in format "YYYY-MM", extract just the month part
+            if '-' in month:
+                month_part = month.split('-')[1]
             else:
-                end_date = f"{year}-{str(int(month_num)+1).zfill(2)}-01"
+                month_part = month
+            target_date = datetime.datetime.strptime(f"{year}-{month_part}", "%Y-%m").date()
+            start_date = f"{target_date.year}-{target_date.month:02d}-01"
+            if target_date.month == 12:
+                end_date = f"{target_date.year + 1}-01-01"
+            else:
+                end_date = f"{target_date.year}-{target_date.month + 1:02d}-01"
+        elif year:
+            # Entire year
+            start_date = f"{year}-01-01"
+            end_date = f"{int(year) + 1}-01-01"
+        elif month:
+            # Specific month (from existing month parameter which includes year)
+            if not month:
+                latest_month_query = 'SELECT MAX(TO_CHAR("delivery_date", \'YYYY-MM\')) FROM tbldeliveryinfo'
+                latest_month_result = eval(db.run(latest_month_query))
+                if latest_month_result and latest_month_result[0][0]:
+                    month = latest_month_result[0][0]
+            
+            if month:
+                year_str, month_num = month.split('-')
+                start_date = f"{year_str}-{month_num.zfill(2)}-01"
+                if int(month_num) == 12:
+                    end_date = f"{int(year_str)+1}-01-01"
+                else:
+                    end_date = f"{year_str}-{str(int(month_num)+1).zfill(2)}-01"
+            else:
+                now = datetime.datetime.now()
+                start_date = f"{now.year}-{now.month:02d}-01"
+                if now.month == 12:
+                    end_date = f"{now.year+1}-01-01"
+                else:
+                    end_date = f"{now.year}-{now.month+1:02d}-01"
         else:
-            now = datetime.datetime.now()
-            start_date = f"{now.year}-{now.month:02d}-01"
-            if now.month == 12:
-                end_date = f"{now.year+1}-01-01"
-            else:
-                end_date = f"{now.year}-{now.month+1:02d}-01"
+            # Current month or latest available
+            if not month:
+                latest_month_query = 'SELECT MAX(TO_CHAR("delivery_date", \'YYYY-MM\')) FROM tbldeliveryinfo'
+                latest_month_result = eval(db.run(latest_month_query))
+                if latest_month_result and latest_month_result[0][0]:
+                    month = latest_month_result[0][0]
         
         unit_filter = f"AND unit_id = '{unit_id}'" if unit_id else ""
         

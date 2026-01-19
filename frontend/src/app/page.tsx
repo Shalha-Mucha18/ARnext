@@ -127,7 +127,19 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
 // --- Components ---
 
-const Sidebar = ({ activeSection, setActiveSection, selectedUnit }: { activeSection: string, setActiveSection: (s: string) => void, selectedUnit: string }) => {
+const Sidebar = ({
+  activeSection,
+  setActiveSection,
+  selectedUnit,
+  useFiscalYear,
+  setUseFiscalYear
+}: {
+  activeSection: string,
+  setActiveSection: (s: string) => void,
+  selectedUnit: string,
+  useFiscalYear: boolean,
+  setUseFiscalYear: (v: boolean) => void
+}) => {
   const [imgError, setImgError] = useState(false);
 
   // Reset error state when unit changes to try loading new logo
@@ -175,7 +187,7 @@ const Sidebar = ({ activeSection, setActiveSection, selectedUnit }: { activeSect
           className={`nav-item ${activeSection === 'forecast' ? 'active' : ''}`}
           onClick={() => setActiveSection('forecast')}
         >
-          <i className="fa-solid fa-wand-magic-sparkles nav-icon"></i> Predictive Forecast
+          <i className="fa-solid fa-wand-magic-sparkles nav-icon"></i> AI Forecast
         </button>
         <button className="nav-item">
           <i className="fa-solid fa-microscope nav-icon"></i> Smart Diagnostics
@@ -191,7 +203,7 @@ const Sidebar = ({ activeSection, setActiveSection, selectedUnit }: { activeSect
         <div className="user-card">
           <div className="avatar">BC</div>
           <div className="user-info">
-            <div className="user-name">Bakhtiar C.</div>
+            <div className="user-name">Blah</div>
             <div className="user-status">● Online</div>
           </div>
         </div>
@@ -215,7 +227,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
 
   // Theme Handling
   useEffect(() => {
@@ -241,11 +253,13 @@ export default function Home() {
   const [concentrationRisk, setConcentrationRisk] = useState<ConcentrationRiskResponse | null>(null);
   const [territoryPerformance, setTerritoryPerformance] = useState<TerritoryPerformanceResponse | null>(null);
   const [ytdStats, setYtdStats] = useState<YtdStatsResponse | null>(null);
+  const [mtdStats, setMtdStats] = useState<any>(null);
   const [forecastData, setForecastData] = useState<ForecastResponse | null>(null);
 
   // AI Insights States
   const [regionalInsights, setRegionalInsights] = useState<string | null>(null);
   const [ytdInsights, setYtdInsights] = useState<string | null>(null);
+  const [mtdInsights, setMtdInsights] = useState<string | null>(null);
   const [territoryInsights, setTerritoryInsights] = useState<string | null>(null);
   const [concentrationInsights, setConcentrationInsights] = useState<string | null>(null);
   const [creditInsights, setCreditInsights] = useState<string | null>(null);
@@ -257,6 +271,15 @@ export default function Home() {
   const [selectedUnit, setSelectedUnit] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [availableMonths, setAvailableMonths] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string>("");
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
+  const [useFiscalYear, setUseFiscalYear] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('useFiscalYear');
+      return saved === 'true';
+    }
+    return false;
+  });
   const [notification, setNotification] = useState<string>("");
   const [selectedForecastItem, setSelectedForecastItem] = useState<string | null>(null);
   const [selectedForecastTerritory, setSelectedForecastTerritory] = useState<string | null>(null);
@@ -316,29 +339,47 @@ export default function Home() {
 
   const selectedUnitName = units.find(u => u.unit_id === selectedUnit)?.business_unit_name || "Select Business Unit...";
 
-  const loadAvailableMonths = async () => {
-    try {
-      const url = new URL(`${apiBase}/v1/available-months`);
-      if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
-      const res = await fetch(url.toString());
-      if (res.ok) {
-        const data = await res.json();
-        setAvailableMonths(data.months);
-      }
-    } catch (e) {
-      console.error("Failed to load months:", e);
-    }
-  };
-
-  // Load available months when unit changes
+  // Load available months when unit or year changes
   useEffect(() => {
-    if (selectedUnit) {
-      loadAvailableMonths();
+    if (selectedUnit && selectedYear) {
+      // Generate 12 months for the selected year
+      const months = [
+        { value: `${selectedYear}-01`, label: 'January' },
+        { value: `${selectedYear}-02`, label: 'February' },
+        { value: `${selectedYear}-03`, label: 'March' },
+        { value: `${selectedYear}-04`, label: 'April' },
+        { value: `${selectedYear}-05`, label: 'May' },
+        { value: `${selectedYear}-06`, label: 'June' },
+        { value: `${selectedYear}-07`, label: 'July' },
+        { value: `${selectedYear}-08`, label: 'August' },
+        { value: `${selectedYear}-09`, label: 'September' },
+        { value: `${selectedYear}-10`, label: 'October' },
+        { value: `${selectedYear}-11`, label: 'November' },
+        { value: `${selectedYear}-12`, label: 'December' }
+      ];
+      setAvailableMonths(months);
     } else {
       setAvailableMonths([]);
       setSelectedMonth("");
     }
-  }, [selectedUnit]);
+  }, [selectedUnit, selectedYear]);
+
+  // Generate available years (2020-2026) and set default to 2026
+  useEffect(() => {
+    const years: string[] = [];
+    for (let year = 2020; year <= 2026; year++) {
+      years.push(year.toString());
+    }
+    setAvailableYears(years);
+    setSelectedYear("2026"); // Set default to 2026
+  }, []);
+
+  // Persist fiscal year preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('useFiscalYear', useFiscalYear.toString());
+    }
+  }, [useFiscalYear]);
 
   // Render Section replacement
   /*
@@ -367,12 +408,16 @@ export default function Home() {
         const url = new URL(`${apiBase}/v1/regional-insights`);
         if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
         if (selectedMonth) url.searchParams.append("month", selectedMonth);
+        if (selectedYear) url.searchParams.append("year", selectedYear);
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           setRegionalData(data);
           // Check if data is empty
-          if (selectedMonth && (!data.top_regions || data.top_regions.length === 0)) {
+          if (selectedYear && (!data.top_regions || data.top_regions.length === 0)) {
+            setNotification(`No regional data available for year ${selectedYear}`);
+            setTimeout(() => setNotification(""), 5000);
+          } else if (selectedMonth && (!data.top_regions || data.top_regions.length === 0)) {
             setNotification(`No regional data available for ${selectedMonth}`);
             setTimeout(() => setNotification(""), 5000);
           }
@@ -387,10 +432,19 @@ export default function Home() {
         const url = new URL(`${apiBase}/v1/area-insights`);
         if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
         if (selectedMonth) url.searchParams.append("month", selectedMonth);
+        if (selectedYear) url.searchParams.append("year", selectedYear);
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           setAreaData(data);
+          // Check if data is empty
+          if (selectedYear && (!data.top_areas || data.top_areas.length === 0)) {
+            setNotification(`No area data available for year ${selectedYear}`);
+            setTimeout(() => setNotification(""), 5000);
+          } else if (selectedMonth && (!data.top_areas || data.top_areas.length === 0)) {
+            setNotification(`No area data available for ${selectedMonth}`);
+            setTimeout(() => setNotification(""), 5000);
+          }
         }
       } catch (e) {
         if (e instanceof Error && e.name !== 'AbortError') {
@@ -417,10 +471,19 @@ export default function Home() {
         const url = new URL(`${apiBase}/v1/top-customers`);
         if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
         if (selectedMonth) url.searchParams.append("month", selectedMonth);
+        if (selectedYear) url.searchParams.append("year", selectedYear);
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
-          setCustomerData(data); // Assuming state matches API format {"top_customers": ...} or fixed in state set
+          setCustomerData(data);
+          // Check if data is empty
+          if (selectedYear && (!data.top_customers || data.top_customers.length === 0)) {
+            setNotification(`No customer data available for year ${selectedYear}`);
+            setTimeout(() => setNotification(""), 5000);
+          } else if (selectedMonth && (!data.top_customers || data.top_customers.length === 0)) {
+            setNotification(`No customer data available for ${selectedMonth}`);
+            setTimeout(() => setNotification(""), 5000);
+          }
         }
       } catch (e) {
         if (e instanceof Error && e.name !== 'AbortError') console.error(e);
@@ -445,11 +508,20 @@ export default function Home() {
         const url = new URL(`${apiBase}/v1/territory-performance`);
         if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
         if (selectedMonth) url.searchParams.append("month", selectedMonth);
+        if (selectedYear) url.searchParams.append("year", selectedYear);
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           console.log("Territory Performance Data:", data);
           setTerritoryPerformance(data);
+          // Check if data is empty
+          if (selectedYear && (!data.top_territories || data.top_territories.length === 0)) {
+            setNotification(`No territory data available for year ${selectedYear}`);
+            setTimeout(() => setNotification(""), 5000);
+          } else if (selectedMonth && (!data.top_territories || data.top_territories.length === 0)) {
+            setNotification(`No territory data available for ${selectedMonth}`);
+            setTimeout(() => setNotification(""), 5000);
+          }
         }
       } catch (e) {
         if (e instanceof Error && e.name !== 'AbortError') console.error(e);
@@ -472,6 +544,7 @@ export default function Home() {
       try {
         const url = new URL(`${apiBase}/v1/ytd-sales`);
         if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
+        if (useFiscalYear) url.searchParams.append("fiscal_year", "true");
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (res.ok) setYtdStats(await res.json());
       } catch (e) {
@@ -479,9 +552,21 @@ export default function Home() {
       }
     };
 
+    const loadMtdStats = async () => {
+      try {
+        const url = new URL(`${apiBase}/v1/mtd-stats`);
+        if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
+        if (selectedMonth) url.searchParams.append("month", selectedMonth);
+        const res = await fetch(url.toString(), { signal: controller.signal });
+        if (res.ok) setMtdStats(await res.json());
+      } catch (e) {
+        if (e instanceof Error && e.name !== 'AbortError') console.error(e);
+      }
+    };
+
     if (activeSection === 'overview') {
       setIsDataLoading(true);
-      Promise.all([loadSales(), loadRegional(), loadAreaData(), loadCredit(), loadCustomerData(), loadConcentration(), loadTerritories(), loadYtdStats()])
+      Promise.all([loadSales(), loadRegional(), loadAreaData(), loadCredit(), loadCustomerData(), loadConcentration(), loadTerritories(), loadYtdStats(), loadMtdStats()])
         .finally(() => setIsDataLoading(false));
     } else if (activeSection === 'forecast') {
       setIsDataLoading(true);
@@ -490,7 +575,7 @@ export default function Home() {
     }
 
     return () => controller.abort();
-  }, [activeSection, selectedUnit, selectedMonth, apiBase]);
+  }, [activeSection, selectedUnit, selectedMonth, selectedYear, useFiscalYear, apiBase]);
 
   // AI Insights Handlers
   const loadRegionalInsights = async () => {
@@ -520,6 +605,7 @@ export default function Home() {
     try {
       const url = new URL(`${apiBase}/v1/ytd-sales-insights`);
       if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
+      if (useFiscalYear) url.searchParams.append("fiscal_year", "true");
       const res = await fetch(url.toString());
       if (res.ok) {
         const data = await res.json();
@@ -530,6 +616,23 @@ export default function Home() {
       setYtdInsights("Failed to generate insights");
     } finally {
       setInsightsLoading(prev => ({ ...prev, ytd: false }));
+    }
+  };
+
+  const loadMtdInsights = async () => {
+    setInsightsLoading(prev => ({ ...prev, mtd: true }));
+    try {
+      const url = new URL(`${apiBase}/v1/mtd-insights`);
+      if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
+      if (selectedMonth) url.searchParams.append("month", selectedMonth);
+      const res = await fetch(url.toString());
+      const data = await res.json();
+      setMtdInsights(data.insights || "No insights available");
+    } catch (e) {
+      console.error("Failed to load MTD insights", e);
+      setMtdInsights("Failed to generate insights");
+    } finally {
+      setInsightsLoading(prev => ({ ...prev, mtd: false }));
     }
   };
 
@@ -679,7 +782,13 @@ export default function Home() {
     <div className="app-layout">
 
       {/* --- Sidebar --- */}
-      <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} selectedUnit={selectedUnit} />
+      <Sidebar
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        selectedUnit={selectedUnit}
+        useFiscalYear={useFiscalYear}
+        setUseFiscalYear={setUseFiscalYear}
+      />
 
       {/* --- Main Content Area --- */}
       <div className="main-area">
@@ -725,15 +834,66 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Fiscal Year Toggle */}
+            <button
+              onClick={() => setUseFiscalYear(!useFiscalYear)}
+              className={`filter-btn ${useFiscalYear ? 'active' : ''}`}
+              title={useFiscalYear ? "Switch to Calendar Year" : "Switch to Fiscal Year (July-June)"}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '0 12px',
+                height: '40px',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                background: useFiscalYear ? 'rgba(59, 130, 246, 0.1)' : 'var(--panel-bg)',
+                color: useFiscalYear ? '#3b82f6' : 'var(--text-color)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontSize: '0.875rem',
+                fontWeight: '500'
+              }}
+            >
+              <i className={`fa-solid ${useFiscalYear ? 'fa-calendar-check' : 'fa-calendar'} ${useFiscalYear ? 'text-blue' : ''}`}></i>
+              {useFiscalYear ? 'FY 25-26' : 'CY'}
+            </button>
+
+            {/* Year Filter */}
+            <div className="input-wrapper">
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="unit-select"
+                disabled={!selectedUnit}
+              >
+                {availableYears.map(y => {
+                  let label = y;
+                  if (useFiscalYear) {
+                    const yr = parseInt(y);
+                    const currentShort = y.slice(-2);
+                    const prevShort = (yr - 1).toString().slice(-2);
+                    // User requested "25-24" format (Current-Previous)
+                    label = `${currentShort}-${prevShort}`;
+                  }
+                  return <option key={y} value={y}>{label}</option>
+                })}
+              </select>
+
+              <div className="input-icon right">
+                <i className="fa-solid fa-calendar-days"></i>
+              </div>
+            </div>
+
             {/* Month Filter */}
             <div className="input-wrapper">
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="unit-select"
-                disabled={!selectedUnit}
+                disabled={!selectedUnit || !selectedYear}
               >
-                <option value="">Current Month</option>
+                <option value="">All Months</option>
                 {availableMonths.map(m => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
@@ -760,6 +920,7 @@ export default function Home() {
             >
               {theme === 'dark' ? <i className="fa-solid fa-moon"></i> : <i className="fa-solid fa-sun text-warning"></i>}
             </button>
+
             <button className="icon-btn">
               <i className="fa-regular fa-bell"></i>
               <span className="notification-dot"></span>
@@ -776,55 +937,10 @@ export default function Home() {
           {activeSection === 'overview' && (
             <>
               {/* Metrics Row */}
-              <div className="dashboard-grid">
-                <div className="panel dashboard-panel">
-                  <div className="panel-header"><h2>Current YTD Volume</h2></div>
-                  <div className="metric-value-row">
-                    <span className="metric-value" style={{ color: textColor }}>
-                      {ytdStats ? ytdStats.current_ytd.total_quantity.toLocaleString() : '...'}
-                    </span>
-                    <span className="metric-unit" style={{ color: mutedColor }}>MT</span>
-                  </div>
-                  {ytdStats && (
-                    <div className={`metric-badge ${ytdStats.growth_metrics.quantity_growth_pct >= 0 ? 'badge-green' : 'badge-red'}`}>
-                      {ytdStats.growth_metrics.quantity_growth_pct > 0 ? '+' : ''}{ytdStats.growth_metrics.quantity_growth_pct.toFixed(1)}% vs Prev YTD
-                    </div>
-                  )}
-                </div>
-
-                <div className="panel dashboard-panel">
-                  <div className="panel-header"><h2>Current YTD Orders</h2></div>
-                  <div className="metric-value-row">
-                    <span className="metric-value" style={{ color: textColor }}>
-                      {ytdStats ? ytdStats.current_ytd.total_orders.toLocaleString() : '...'}
-                    </span>
-                    <span className="metric-unit" style={{ color: mutedColor }}>Orders</span>
-                  </div>
-                  {ytdStats && (
-                    <div className={`metric-badge ${ytdStats.growth_metrics.order_growth_pct >= 0 ? 'badge-green' : 'badge-red'}`}>
-                      {ytdStats.growth_metrics.order_growth_pct > 0 ? '+' : ''}{ytdStats.growth_metrics.order_growth_pct.toFixed(1)}% vs Prev YTD
-                    </div>
-                  )}
-                </div>
-
-                <div className="panel dashboard-panel">
-                  <div className="panel-header"><h2>Previous YTD Orders</h2></div>
-                  <div className="metric-value-row">
-                    <span className="metric-value" style={{ color: textColor }}>
-                      {ytdStats ? ytdStats.last_ytd.total_orders.toLocaleString() : '...'}
-                    </span>
-                  </div>
-                  {ytdStats && (
-                    <div style={{ marginTop: '8px', fontSize: '0.75rem', color: mutedColor }}>
-                      <div>{ytdStats.last_ytd.total_quantity.toLocaleString()} MT</div>
-                      <div>Year: {ytdStats.last_ytd.year || 'N/A'}</div>
-                    </div>
-                  )}
-                </div>
-
+              <div className="dashboard-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                 <div className="panel dashboard-panel" style={{ borderLeft: '4px solid #10b981' }}>
                   <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2>YTD Summary</h2>
+                    <h2>{useFiscalYear ? 'Fiscal YTD Summary' : 'YTD Summary'}</h2>
                     <button
                       onClick={loadYtdInsights}
                       disabled={insightsLoading.ytd}
@@ -845,21 +961,25 @@ export default function Home() {
                   </div>
 
                   {ytdStats && (
-                    <div style={{ marginTop: '8px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ marginTop: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div>
-                          <div style={{ fontSize: '0.75rem', color: mutedColor, marginBottom: '4px' }}>Current YTD</div>
-                          <div style={{ fontSize: '0.875rem', fontWeight: '600', color: textColor }}>{ytdStats.current_ytd.total_quantity.toLocaleString()} MT</div>
+                          <div style={{ fontSize: '0.75rem', color: mutedColor, marginBottom: '4px' }}>
+                            {useFiscalYear ? 'Current FYTD' : 'Current YTD'}
+                          </div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: '400', color: textColor }}>{ytdStats.current_ytd.total_quantity.toLocaleString()} MT/CFT/Pcs</div>
                           <div style={{ fontSize: '0.75rem', color: mutedColor }}>{ytdStats.current_ytd.total_orders} Orders</div>
                         </div>
                         <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
-                          <div style={{ fontSize: '0.75rem', color: mutedColor, marginBottom: '4px' }}>Previous YTD</div>
-                          <div style={{ fontSize: '0.875rem', fontWeight: '600', color: textColor }}>{ytdStats.last_ytd.total_quantity.toLocaleString()} MT</div>
+                          <div style={{ fontSize: '0.75rem', color: mutedColor, marginBottom: '4px' }}>
+                            {useFiscalYear ? 'Previous FYTD' : 'SPLY'}
+                          </div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: '300', color: textColor }}>{ytdStats.last_ytd.total_quantity.toLocaleString()} MT/CFT/Pcs</div>
                           <div style={{ fontSize: '0.75rem', color: mutedColor }}>{ytdStats.last_ytd.total_orders} Orders</div>
                         </div>
                       </div>
                       <div className={`metric-badge ${ytdStats.growth_metrics.quantity_growth_pct >= 0 ? 'badge-green' : 'badge-red'}`} style={{ marginTop: '12px', display: 'inline-block' }}>
-                        {ytdStats.growth_metrics.quantity_growth_pct > 0 ? '+' : ''}{ytdStats.growth_metrics.quantity_growth_pct.toFixed(1)}% Growth YoY
+                        {ytdStats.growth_metrics.quantity_growth_pct > 0 ? '+' : ''}{ytdStats.growth_metrics.quantity_growth_pct.toFixed(1)}% Growth vs {useFiscalYear ? 'PFYTD' : 'PYTD'}
                       </div>
                     </div>
                   )}
@@ -892,6 +1012,90 @@ export default function Home() {
                     </div>
                   )}
                 </div>
+
+                {/* MTD Summary Card */}
+                <div className="panel dashboard-panel" style={{ borderLeft: '4px solid #3b82f6' }}>
+                  <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2>MTD Summary</h2>
+                    <button
+                      onClick={loadMtdInsights}
+                      disabled={insightsLoading.mtd}
+                      title="Generate AI Insights"
+                      style={{
+                        padding: '4px 8px',
+                        background: mtdInsights ? '#3b82f6' : (insightsLoading.mtd ? '#64748b' : 'transparent'),
+                        color: mtdInsights ? 'white' : '#3b82f6',
+                        border: mtdInsights ? 'none' : '1px solid #3b82f6',
+                        borderRadius: '4px',
+                        fontSize: '0.7rem',
+                        cursor: insightsLoading.mtd ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {insightsLoading.mtd ? '⏳' : (mtdInsights ? '✓ Insights' : '✨ AI')}
+                    </button>
+                  </div>
+
+                  {mtdStats && (
+                    <div style={{ marginTop: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div>
+                          <div style={{ fontSize: '0.75rem', color: mutedColor, marginBottom: '4px' }}>
+                            {mtdStats.current_month.month} {mtdStats.current_month.year}
+                          </div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: '400', color: textColor }}>
+                            {mtdStats.current_month.total_quantity.toLocaleString()} MT/CFT/Pcs
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: mutedColor }}>
+                            {mtdStats.current_month.total_orders} Orders
+                          </div>
+                        </div>
+                        <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
+                          <div style={{ fontSize: '0.75rem', color: mutedColor, marginBottom: '4px' }}>
+                            {mtdStats.previous_month.month} {mtdStats.previous_month.year}
+                          </div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: '300', color: textColor }}>
+                            {mtdStats.previous_month.total_quantity.toLocaleString()} MT/CFT/Pcs
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: mutedColor }}>
+                            {mtdStats.previous_month.total_orders} Orders
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`metric-badge ${mtdStats.growth_metrics.quantity_growth_pct >= 0 ? 'badge-green' : 'badge-red'}`} style={{ marginTop: '12px', display: 'inline-block' }}>
+                        {mtdStats.growth_metrics.quantity_growth_pct > 0 ? '+' : ''}{mtdStats.growth_metrics.quantity_growth_pct.toFixed(1)}% Growth vs PMTD
+                      </div>
+                    </div>
+                  )}
+                  {mtdInsights && (
+                    <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '4px', borderLeft: '3px solid #3b82f6', position: 'relative' }}>
+                      <button
+                        onClick={() => setMtdInsights(null)}
+                        style={{
+                          position: 'absolute',
+                          top: '8px',
+                          right: '8px',
+                          background: 'transparent',
+                          border: 'none',
+                          color: mutedColor,
+                          cursor: 'pointer',
+                          fontSize: '1rem',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        title="Close insights"
+                      >
+                        ✕
+                      </button>
+                      <div style={{ fontSize: '0.75rem', lineHeight: '1.5', color: textColor, paddingRight: '20px' }}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{mtdInsights}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
 
@@ -919,7 +1123,7 @@ export default function Home() {
 
                 <div className="panel dashboard-panel wide">
                   <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2>Top Regions (Volume)</h2>
+                    <h2>Regional Performance</h2>
                     <button
                       onClick={loadRegionalInsights}
                       disabled={insightsLoading.regional}
@@ -985,7 +1189,7 @@ export default function Home() {
                 {/* Top Areas */}
                 <div className="panel dashboard-panel wide">
                   <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2>Top Areas (Volume)</h2>
+                    <h2>Areas Performance</h2>
                     <button
                       onClick={loadAreaInsights}
                       disabled={insightsLoading.area}
@@ -1057,7 +1261,7 @@ export default function Home() {
               <div className="dashboard-grid">
                 <div className="panel dashboard-panel wide">
                   <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2>Top 10 Customers</h2>
+                    <h2>Customers Performance</h2>
                     <button
                       onClick={loadConcentrationInsights}
                       disabled={insightsLoading.concentration}
@@ -1254,7 +1458,7 @@ export default function Home() {
                           <div style={{ color: mutedColor, fontSize: '0.7rem' }}>{creditRatio.cash.order_count} Orders</div>
                         </div>
                         <div>
-                          <div style={{ color: mutedColor, fontSize: '0.875rem' }}>Both (Credit+Cash)</div>
+                          <div style={{ color: mutedColor, fontSize: '0.875rem' }}>Both</div>
                           <div style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: '700' }}>{creditRatio.both.percentage.toFixed(1)}%</div>
                           <div style={{ color: mutedColor, fontSize: '0.75rem' }}>{creditRatio.both.revenue.toLocaleString()} MT</div>
                           <div style={{ color: mutedColor, fontSize: '0.7rem' }}>{creditRatio.both.order_count} Orders</div>

@@ -1,11 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import router
+from core.logging import setup_logging
 import os
 
-app = FastAPI(title="SalesGPT Backend", version="1.0.0")
+# Initialize logging
+setup_logging()
 
+app = FastAPI(
+    title="ARNext Intelligence API",
+    version="2.0.0",
+    description="Sales Analytics API with AI-powered insights"
+)
 
+# CORS Configuration
+# TODO: Replace with specific origins in production
 origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
@@ -15,4 +23,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router)
+# Include new V1 API router (refactored endpoints)
+from app.api.v1.api import api_router
+app.include_router(api_router)
+
+# Include legacy router for endpoints not yet refactored
+from .api_legacy import router as legacy_router
+app.include_router(legacy_router)

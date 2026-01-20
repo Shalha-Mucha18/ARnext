@@ -43,8 +43,8 @@ type SalesMetricsResponse = {
 };
 
 type RegionContributionResponse = {
-  top_regions: { name: string; quantity: number; orders: number }[];
-  bottom_regions: { name: string; quantity: number; orders: number }[];
+  top_regions: { name: string; quantity: number; orders: number; uom?: string; percentage?: number }[];
+  bottom_regions: { name: string; quantity: number; orders: number; uom?: string; percentage?: number }[];
   total_volume: number;
 };
 
@@ -77,6 +77,7 @@ type YtdStatsResponse = {
     period_start: string;
     period_end: string;
     year?: number;
+    uom?: string;
   };
   last_ytd: {
     total_orders: number;
@@ -85,6 +86,7 @@ type YtdStatsResponse = {
     period_start: string;
     period_end: string;
     year?: number;
+    uom?: string;
   };
   growth_metrics: {
     order_growth_pct: number;
@@ -414,8 +416,16 @@ export default function Home() {
       try {
         const url = new URL(`${apiBase}/v1/regional-insights`);
         if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
-        if (selectedMonth) url.searchParams.append("month", selectedMonth);
-        if (selectedYear) url.searchParams.append("year", selectedYear);
+
+        // Convert selectedMonth from "YYYY-MM" to integer month (1-12) and year
+        if (selectedMonth) {
+          const [year, month] = selectedMonth.split('-');
+          url.searchParams.append("month", month);
+          url.searchParams.append("year", year);
+        } else if (selectedYear) {
+          url.searchParams.append("year", selectedYear);
+        }
+
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
@@ -647,11 +657,16 @@ export default function Home() {
       }
 
       const res = await fetch(url.toString());
+      if (!res.ok) {
+        console.warn(`MTD insights returned ${res.status}`);
+        setMtdInsights("Insights temporarily unavailable");
+        return;
+      }
       const data = await res.json();
       setMtdInsights(data.insights || "No insights available");
     } catch (e) {
       console.error("Failed to load MTD insights", e);
-      setMtdInsights("Failed to generate insights");
+      setMtdInsights("Insights temporarily unavailable");
     } finally {
       setInsightsLoading(prev => ({ ...prev, mtd: false }));
     }
@@ -981,21 +996,21 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {ytdStats && (
+                  {ytdStats && ytdStats.current_ytd && ytdStats.last_ytd && (
                     <div style={{ marginTop: '10px' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div>
                           <div style={{ fontSize: '0.75rem', color: mutedColor, marginBottom: '4px' }}>
                             {useFiscalYear ? 'Current FYTD' : 'Current YTD'}
                           </div>
-                          <div style={{ fontSize: '0.875rem', fontWeight: '400', color: textColor }}>{ytdStats.current_ytd.total_quantity.toLocaleString()} MT/CFT/Pcs</div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: '400', color: textColor }}>{ytdStats.current_ytd.total_quantity.toLocaleString()} {ytdStats.current_ytd.uom || 'MT'}</div>
                           <div style={{ fontSize: '0.75rem', color: mutedColor }}>{ytdStats.current_ytd.total_orders} Orders</div>
                         </div>
                         <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
                           <div style={{ fontSize: '0.75rem', color: mutedColor, marginBottom: '4px' }}>
                             {useFiscalYear ? 'Previous FYTD' : 'SPLY'}
                           </div>
-                          <div style={{ fontSize: '0.875rem', fontWeight: '300', color: textColor }}>{ytdStats.last_ytd.total_quantity.toLocaleString()} MT/CFT/Pcs</div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: '300', color: textColor }}>{ytdStats.last_ytd.total_quantity.toLocaleString()} {ytdStats.last_ytd.uom || 'MT'}</div>
                           <div style={{ fontSize: '0.75rem', color: mutedColor }}>{ytdStats.last_ytd.total_orders} Orders</div>
                         </div>
                       </div>
@@ -1057,7 +1072,7 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {mtdStats && (
+                  {mtdStats && mtdStats.current_month && mtdStats.previous_month && (
                     <div style={{ marginTop: '10px' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div>
@@ -1065,7 +1080,7 @@ export default function Home() {
                             {mtdStats.current_month.month} {mtdStats.current_month.year}
                           </div>
                           <div style={{ fontSize: '0.875rem', fontWeight: '400', color: textColor }}>
-                            {mtdStats.current_month.total_quantity.toLocaleString()} MT/CFT/Pcs
+                            {mtdStats.current_month.total_quantity.toLocaleString()} {mtdStats.current_month.uom || 'MT'}
                           </div>
                           <div style={{ fontSize: '0.75rem', color: mutedColor }}>
                             {mtdStats.current_month.total_orders} Orders
@@ -1076,7 +1091,7 @@ export default function Home() {
                             {mtdStats.previous_month.month} {mtdStats.previous_month.year}
                           </div>
                           <div style={{ fontSize: '0.875rem', fontWeight: '300', color: textColor }}>
-                            {mtdStats.previous_month.total_quantity.toLocaleString()} MT/CFT/Pcs
+                            {mtdStats.previous_month.total_quantity.toLocaleString()} {mtdStats.previous_month.uom || 'MT'}
                           </div>
                           <div style={{ fontSize: '0.75rem', color: mutedColor }}>
                             {mtdStats.previous_month.total_orders} Orders
@@ -1164,16 +1179,25 @@ export default function Home() {
                     </button>
                   </div>
                   <div className="rank-list">
-                    {regionalData?.top_regions?.slice(0, 4).map((r, i) => (
+                    {regionalData?.top_regions?.slice(0, 5).map((r, i) => (
                       <div key={i} className="rank-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div className="rank-badge" style={{ background: '#3b82f6', color: 'white' }}>{i + 1}</div>
                           <div>
                             <div style={{ fontSize: '0.875rem', fontWeight: '600', color: textColor }}>{r.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: mutedColor }}>{r.orders} Orders</div>
                           </div>
                         </div>
-                        <div style={{ fontWeight: '700', color: textColor, fontSize: '0.875rem' }}>{r.quantity.toLocaleString()} MT</div>
+                        <div style={{ fontWeight: '700', color: textColor, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{r.quantity.toLocaleString()} {r.uom || 'MT'}</span>
+                          <span style={{
+                            fontSize: '0.7rem',
+                            color: '#10b981',
+                            fontWeight: '600',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                          }}>{((r.quantity / (regionalData.total_volume || 1)) * 100).toFixed(1)}%</span>
+                        </div>
                       </div>
                     ))}
                   </div>

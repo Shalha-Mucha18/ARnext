@@ -26,3 +26,8 @@ chromadb
 redis
 tenacity
 watchdog
+python-dateutil
+
+# Testing
+pytest
+pytest-asyncio

@@ -269,7 +269,7 @@ def health():
     return {"status": "ok"}
 
 @router.get("/v1/ytd-sales")
-def get_ytd_sales(unit_id: str = None, fiscal_year: bool = False):
+def get_ytd_sales(unit_id: int = None, fiscal_year: bool = False):
     """Get Year-to-Date sales comparison: Current Year vs Last Year.
     
     Args:
@@ -284,33 +284,29 @@ def get_ytd_sales(unit_id: str = None, fiscal_year: bool = False):
     
     try:
         # Build unit filter
-        unit_filter = f" AND \"unit_id\" = '{unit_id}'" if unit_id else ""
-        
+        unit_filter = f"AND unit_id = {int(unit_id)}" if unit_id else ""
         # Get current date for YTD calculations
-        today = date.today()
+        import datetime
+        today = datetime.date.today()
         
         if fiscal_year:
-            # Fiscal Year: July 1 - June 30
-            # If today is before July, we're in previous fiscal year
+            # FY label = end year (Jul-Jun)
             if today.month < 7:
-                current_fy_year = today.year
+                # Jan-Jun -> FY ends this year
+                current_year = today.year
                 current_ytd_start = f"{today.year - 1}-07-01"
             else:
-                current_fy_year = today.year + 1
+                # Jul-Dec -> FY ends next year
+                current_year = today.year + 1
                 current_ytd_start = f"{today.year}-07-01"
-            
+
             current_ytd_end = today.strftime("%Y-%m-%d")
-            
-            # Last fiscal year - same period
-            last_fy_year = current_fy_year - 1
-            if today.month < 7:
-                last_ytd_start = f"{today.year - 2}-07-01"
-                last_ytd_end = f"{today.year - 1}-{today.month:02d}-{today.day:02d}"
-            else:
-                last_ytd_start = f"{today.year - 1}-07-01"
-                last_ytd_end = f"{today.year - 1}-{today.month:02d}-{today.day:02d}"
+            last_year = current_year - 1
+            last_ytd_start = f"{int(current_ytd_start[:4]) - 1}-07-01"
+            last_ytd_end = f"{today.year - 1}-{today.month:02d}-{today.day:02d}"
+
         else:
-            # Calendar Year: January 1 - December 31
+            
             current_year = today.year
             last_year = current_year - 1
             
@@ -320,31 +316,30 @@ def get_ytd_sales(unit_id: str = None, fiscal_year: bool = False):
             last_ytd_start = f"{last_year}-01-01"
             last_ytd_end = f"{last_year}-{today.month:02d}-{today.day:02d}"
         
+        print(current_ytd_start, current_ytd_end)
+        print(last_ytd_start, last_ytd_end)
+        print(unit_filter)
         # Current Year YTD Query
-        current_ytd_query = f'''
+        current_ytd_query = f"""
         SELECT
-            COUNT(*) AS total_order,
-            ROUND(CAST(SUM("delivery_qty") AS NUMERIC), 2) AS total_sales_quantity,
-            ROUND(CAST(SUM("delivery_qty") AS NUMERIC), 2) AS total_revenue
-        FROM public.tbldeliveryinfo
-        WHERE "delivery_date" >= DATE '{current_ytd_start}'
-          AND "delivery_date" <= DATE '{current_ytd_end}'
-          AND "delivery_date" IS NOT NULL
-          {unit_filter}
-        '''
+                    COUNT(*) AS total_order,
+            ROUND(SUM(delivery_qty)::numeric, 2) AS total_sales_quantity,
+            ROUND(SUM(delivery_invoice_amount)::numeric, 2) AS total_revenue
+FROM public.tbldeliveryinfo
+WHERE delivery_date BETWEEN '{current_ytd_start}' AND '{current_ytd_end}'
+  {unit_filter};
+"""
         
         # Last Year YTD Query (same period)
-        last_ytd_query = f'''
-        SELECT
-            COUNT(*) AS total_order,
-            ROUND(CAST(SUM("delivery_qty") AS NUMERIC), 2) AS total_sales_quantity,
-            ROUND(CAST(SUM("delivery_qty") AS NUMERIC), 2) AS total_revenue
-        FROM public.tbldeliveryinfo
-        WHERE "delivery_date" >= DATE '{last_ytd_start}'
-          AND "delivery_date" <= DATE '{last_ytd_end}'
-          AND "delivery_date" IS NOT NULL
-          {unit_filter}
-        '''
+        last_ytd_query = f"""
+SELECT
+  COUNT(*) AS total_order,
+  ROUND(SUM(delivery_qty)::numeric, 2) AS total_sales_quantity,
+  ROUND(SUM(delivery_invoice_amount)::numeric, 2) AS total_revenue
+FROM public.tbldeliveryinfo
+WHERE delivery_date BETWEEN '{last_ytd_start}' AND '{last_ytd_end}'
+  {unit_filter};
+"""
         
         # Execute queries
         try:
@@ -360,7 +355,6 @@ def get_ytd_sales(unit_id: str = None, fiscal_year: bool = False):
             "year": current_year,
             "total_orders": current_result[0] or 0,
             "total_quantity": float(current_result[1] or 0),
-            "total_revenue": float(current_result[2] or 0),
             "period_start": current_ytd_start,
             "period_end": current_ytd_end
         }
@@ -370,7 +364,6 @@ def get_ytd_sales(unit_id: str = None, fiscal_year: bool = False):
             "year": last_year,
             "total_orders": last_result[0] or 0,
             "total_quantity": float(last_result[1] or 0),
-            "total_revenue": float(last_result[2] or 0),
             "period_start": last_ytd_start,
             "period_end": last_ytd_end
         }
@@ -386,16 +379,12 @@ def get_ytd_sales(unit_id: str = None, fiscal_year: bool = False):
         if last_ytd["total_quantity"] > 0:
             quantity_growth = ((current_ytd["total_quantity"] - last_ytd["total_quantity"]) / last_ytd["total_quantity"]) * 100
         
-        if last_ytd["total_revenue"] > 0:
-            revenue_growth = ((current_ytd["total_revenue"] - last_ytd["total_revenue"]) / last_ytd["total_revenue"]) * 100
         
         growth_metrics = {
             "order_growth_pct": round(order_growth, 2),
             "quantity_growth_pct": round(quantity_growth, 2),
-            "revenue_growth_pct": round(revenue_growth, 2),
             "order_change": current_ytd["total_orders"] - last_ytd["total_orders"],
-            "quantity_change": round(current_ytd["total_quantity"] - last_ytd["total_quantity"], 2),
-            "revenue_change": round(current_ytd["total_revenue"] - last_ytd["total_revenue"], 2)
+            "quantity_change": round(current_ytd["total_quantity"] - last_ytd["total_quantity"], 2)
         }
         
         # Return response without AI insights for faster loading
@@ -598,83 +587,74 @@ RULES:
 
 
 @router.get("/v1/mtd-stats")
-def get_mtd_stats(unit_id: str = None, month: str = None):
-    """
-    Get Month-to-Date statistics comparing current month vs previous month.
-    
-    Args:
-        unit_id: Optional business unit filter
-        month: Optional month in YYYY-MM format (defaults to current month)
-    
-    Returns:
-        {
-            "current_month": {"total_quantity": float, "total_orders": int, "month": str, "year": int},
-            "previous_month": {"total_quantity": float, "total_orders": int, "month": str, "year": int},
-            "growth_metrics": {"quantity_growth_pct": float, "order_growth_pct": float}
-        }
-    """
+def get_mtd_stats(unit_id: int = None, month: int = None, year: int = None):
     from db.engine import db
     import datetime
     from dateutil.relativedelta import relativedelta
-    
+
     try:
-        # Determine target month
+        today = datetime.date.today()
+
+        # If month provided, use that month/year but keep cutoff as today's day
         if month:
-            try:
-                target_date = datetime.datetime.strptime(month, "%Y-%m").date()
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+            if not 1 <= month <= 12:
+                raise HTTPException(status_code=400, detail="Month must be between 1 and 12")
+
+            target_year = year if year else today.year
+            current_month_start = datetime.date(target_year, month, 1)
+
+            # Use today's day as cutoff (e.g., 20), not 1
+            cutoff_day = today.day
         else:
-            target_date = datetime.date.today()
-        
-        # Calculate current month range
-        current_month_start = target_date.replace(day=1)
-        if current_month_start.month == 12:
-            current_month_end = current_month_start.replace(year=current_month_start.year + 1, month=1, day=1)
-        else:
-            current_month_end = current_month_start.replace(month=current_month_start.month + 1, day=1)
-        
-        # Calculate previous month range
+            # Default: current month and cutoff = today
+            current_month_start = today.replace(day=1)
+            cutoff_day = today.day
+
+        # Cap cutoff_day to last day of current target month
+        last_day_current = (current_month_start + relativedelta(months=1) - datetime.timedelta(days=1)).day
+        current_cutoff_day = min(cutoff_day, last_day_current)
+        current_month_end = current_month_start.replace(day=current_cutoff_day)
+
+        # Previous month start
         prev_month_start = current_month_start - relativedelta(months=1)
-        prev_month_end = current_month_start
-        
-        # Build unit filter
-        unit_filter = f"AND unit_id = '{unit_id}'" if unit_id else ""
-        
-        # Query current month stats
+
+        # Cap cutoff_day to last day of previous month
+        last_day_prev = (prev_month_start + relativedelta(months=1) - datetime.timedelta(days=1)).day
+        prev_cutoff_day = min(cutoff_day, last_day_prev)
+        prev_month_end = prev_month_start.replace(day=prev_cutoff_day)
+
+        # Unit filter (int column -> no quotes)
+        unit_filter = f"AND unit_id = {int(unit_id)}" if unit_id else ""
+
         current_query = f"""
-        SELECT 
-            COALESCE(SUM(delivery_qty), 0) as total_quantity,
-            COUNT(*) as total_orders
+        SELECT
+          SUM(delivery_qty) AS total_quantity,
+          COUNT(*) AS total_orders
         FROM public.tbldeliveryinfo
-        WHERE delivery_date >= DATE '{current_month_start}'
-          AND delivery_date < DATE '{current_month_end}'
-          {unit_filter}
+        WHERE delivery_date BETWEEN DATE '{current_month_start}' AND DATE '{current_month_end}'
+          {unit_filter};
         """
-        
-        current_result = eval(db.run(current_query))
-        current_qty = float(current_result[0][0]) if current_result and current_result[0][0] else 0.0
-        current_orders = int(current_result[0][1]) if current_result and current_result[0][1] else 0
-        
-        # Query previous month stats
+
         prev_query = f"""
-        SELECT 
-            COALESCE(SUM(delivery_qty), 0) as total_quantity,
-            COUNT(*) as total_orders
+        SELECT
+          SUM(delivery_qty) AS total_quantity,
+          COUNT(*) AS total_orders
         FROM public.tbldeliveryinfo
-        WHERE delivery_date >= DATE '{prev_month_start}'
-          AND delivery_date < DATE '{prev_month_end}'
-          {unit_filter}
+        WHERE delivery_date BETWEEN DATE '{prev_month_start}' AND DATE '{prev_month_end}'
+          {unit_filter};
         """
-        
-        prev_result = eval(db.run(prev_query))
-        prev_qty = float(prev_result[0][0]) if prev_result and prev_result[0][0] else 0.0
-        prev_orders = int(prev_result[0][1]) if prev_result and prev_result[0][1] else 0
-        
-        # Calculate growth metrics
+        current_result = eval(db.run(current_query))[0]
+        prev_result = eval(db.run(prev_query))[0]
+
+        current_qty = float(current_result[0] or 0)
+        current_orders = int(current_result[1] or 0)
+
+        prev_qty = float(prev_result[0] or 0)
+        prev_orders = int(prev_result[1] or 0)
+
         qty_growth = ((current_qty - prev_qty) / prev_qty * 100) if prev_qty > 0 else 0.0
         order_growth = ((current_orders - prev_orders) / prev_orders * 100) if prev_orders > 0 else 0.0
-        
+
         return {
             "current_month": {
                 "total_quantity": round(current_qty, 2),
@@ -693,7 +673,7 @@ def get_mtd_stats(unit_id: str = None, month: str = None):
                 "order_growth_pct": round(order_growth, 2)
             }
         }
-    
+
     except Exception as e:
         print(f"Error in MTD stats: {str(e)}")
         import traceback
@@ -701,22 +681,33 @@ def get_mtd_stats(unit_id: str = None, month: str = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
 @router.get("/v1/mtd-insights")
-def get_mtd_insights(unit_id: str = None, month: str = None):
-    """Generate AI insights for MTD performance."""
+def get_mtd_insights(unit_id: int = None, month: int = None, year: int = None):
+    """Generate AI insights for MTD performance.
+    
+    Args:
+        unit_id: Optional business unit filter
+        month: Optional month as integer (1-12)
+        year: Optional year (defaults to current year if month is provided)
+    """
     from db.engine import db
     import datetime
     from dateutil.relativedelta import relativedelta
     from core.core import get_core
     
     try:
-        # Determine target month
+        # Determine target date
         if month:
-            try:
-                target_date = datetime.datetime.strptime(month, "%Y-%m").date()
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+            # Validate month
+            if not 1 <= month <= 12:
+                raise HTTPException(status_code=400, detail="Month must be between 1 and 12")
+            
+            # Use provided year or current year
+            target_year = year if year else datetime.date.today().year
+            target_date = datetime.date(target_year, month, 1)
         else:
+            # Use today's date
             target_date = datetime.date.today()
         
         # Calculate current month range

@@ -364,15 +364,22 @@ export default function Home() {
     }
   }, [selectedUnit, selectedYear]);
 
-  // Generate available years (2020-2026) and set default to 2026
+  // Generate available years based on fiscal year mode
   useEffect(() => {
-    const years: string[] = [];
-    for (let year = 2020; year <= 2026; year++) {
-      years.push(year.toString());
+    if (useFiscalYear) {
+      // In fiscal year mode, only show current FY (2026 = FY 25-26)
+      setAvailableYears(["2026"]);
+      setSelectedYear("2026");
+    } else {
+      // In calendar year mode, show all years 2020-2026
+      const years: string[] = [];
+      for (let year = 2020; year <= 2026; year++) {
+        years.push(year.toString());
+      }
+      setAvailableYears(years);
+      setSelectedYear("2026");
     }
-    setAvailableYears(years);
-    setSelectedYear("2026"); // Set default to 2026
-  }, []);
+  }, [useFiscalYear]); // Re-run when fiscal year toggle changes
 
   // Persist fiscal year preference
   useEffect(() => {
@@ -556,7 +563,14 @@ export default function Home() {
       try {
         const url = new URL(`${apiBase}/v1/mtd-stats`);
         if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
-        if (selectedMonth) url.searchParams.append("month", selectedMonth);
+
+        // Convert selectedMonth from "YYYY-MM" to month (1-12) and year
+        if (selectedMonth) {
+          const [year, month] = selectedMonth.split('-');
+          url.searchParams.append("month", month); // month as integer (1-12)
+          url.searchParams.append("year", year);
+        }
+
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (res.ok) setMtdStats(await res.json());
       } catch (e) {
@@ -624,7 +638,14 @@ export default function Home() {
     try {
       const url = new URL(`${apiBase}/v1/mtd-insights`);
       if (selectedUnit) url.searchParams.append("unit_id", selectedUnit);
-      if (selectedMonth) url.searchParams.append("month", selectedMonth);
+
+      // Convert selectedMonth from "YYYY-MM" to month (1-12) and year
+      if (selectedMonth) {
+        const [year, month] = selectedMonth.split('-');
+        url.searchParams.append("month", month);
+        url.searchParams.append("year", year);
+      }
+
       const res = await fetch(url.toString());
       const data = await res.json();
       setMtdInsights(data.insights || "No insights available");

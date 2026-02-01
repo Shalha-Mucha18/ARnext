@@ -8,20 +8,18 @@ def make_pg_url() -> str:
         f"postgresql+psycopg2://{settings.PG_USER}:{settings.PG_PASSWORD}"
         f"@{settings.PG_HOST}:{settings.PG_PORT}/{settings.PG_DB}"
     )
-
-# Use minimal connection pool for Azure PostgreSQL limits
 engine = create_engine(
     make_pg_url(),
     poolclass=QueuePool,
-    pool_size=2,              # Minimal pool size
-    max_overflow=3,           # Very limited overflow
-    pool_pre_ping=True,       # Verify connections before using
-    pool_recycle=300,         # Recycle connections after 5 minutes
-    pool_timeout=30,          # Timeout waiting for connection
+    pool_size=10,             # Balanced to prevent server exhaustion
+    max_overflow=15,          # Total max: 25 connections for sync pool
+    pool_pre_ping=True,       
+    pool_recycle=1800,        # Recycle every 30 min
+    pool_timeout=60,          # Wait up to 60s for connection          
     echo=False,
     connect_args={
         'connect_timeout': 10,
-        'options': '-c statement_timeout=30000'  # 30 second query timeout
+        'options': '-c statement_timeout=30000' 
     }
 )
 

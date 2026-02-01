@@ -1,17 +1,21 @@
-"""
-Forecast-related Pydantic schemas.
-"""
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
 
-class ForecastChartPoint(BaseModel):
-    """Forecast chart data point."""
+class ChartPoint(BaseModel):
     month: str
     actual: Optional[float] = None
     forecast: Optional[float] = None
 
+class ForecastChart(BaseModel):
+    name: str
+    chart: List[ChartPoint]
+
 class ForecastResponse(BaseModel):
-    """Forecast response."""
-    global_chart: List[ForecastChartPoint]
-    items_charts: List[Dict[str, Any]]
-    territories_charts: List[Dict[str, Any]]
+    global_chart: List[ChartPoint]
+    items_charts: List[ForecastChart]
+    territories_charts: List[ForecastChart]
+    unit_id: Optional[str] = None
+
+class ForecastInsightsResponse(BaseModel):
+    insights: str
+    generated_at: Optional[str] = None

@@ -34,11 +34,7 @@ def is_select_only(sql: str) -> bool:
     return True
 
 def ensure_limit(sql: str, default_limit: int) -> str:
-    """
-    Ensure the query has a LIMIT clause. If it already has one, 
-    keep it if it's smaller than default_limit, otherwise enforce default_limit.
-    Skip LIMIT for aggregate queries (they return 1 row anyway).
-    """
+   
     # Check if query uses aggregates (no need for LIMIT - they return 1 row)
     if re.search(r'\b(SUM|COUNT|AVG|MIN|MAX)\s*\(', sql, flags=re.IGNORECASE):
         # Aggregate query - don't add LIMIT, just return as-is

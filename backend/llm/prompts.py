@@ -260,22 +260,36 @@ Provide 3 precise insights. Use short bullet points.
 concentration_risk_prompt = PromptTemplate.from_template("""
 Analyze Customer Concentration Risk for the CEO.
 
-**Data:**
+INPUT DATA:
 - Top 10 Customers Share: {top10_pct}%
 - Remaining Customers Share: {others_pct}%
-- Top Customer Share: {top1_name} ({top1_pct}%)
-- Total Number of Top Customers Analyzed: 10
+- Top Customer: {top1_name} ({top1_pct}%)
 
-**Task:**
-1. Determine the **Concentration Risk Level** (Low/Moderate/High). 
-   - Rule of thumb: Top 10 > 50% is High, > 30% is Moderate, < 30% is Low.
-2. Provide a **Risk Statement** explaining what this means for the company's stability.
-3. Give a **Strategic Recommendation** for the CEO regarding client diversification or retention.
+OUTPUT FORMAT (MAX 150 WORDS):
 
-**Output Format:**
-**Risk Level:** [Level]
-**Insight:** [One sentence analysis]
-**Recommendation:** [One actionable strategic advice]
+🔍 DIAGNOSIS
+[One sentence: root cause of concentration risk and business impact]
+
+• [Key finding about customer dependency level]
+• [Key finding about diversification status]
+• [Strategic implication of current concentration]
+
+💊 PRESCRIPTION
+Now: [Immediate action for top customers] | [Immediate action for diversification]
+Next: [Strategic initiative to reduce concentration risk]
+
+📈 PROGNOSIS
+✓ [Best case outcome if diversification succeeds]
+⚠️ [Risk if concentration continues or worsens]
+
+RULES:
+- Total output: 100-150 words MAX
+- Be brutally direct and CEO-focused
+- DO NOT repeat the input data values (percentages, customer names in metrics)
+- Focus on WHY the concentration exists and WHAT to do
+- Provide actionable strategic insights
+- Include specific action verbs and initiatives
+- Start directly with 🔍 DIAGNOSIS
 """)
 
 # Sales Growth Prompt
@@ -328,28 +342,39 @@ Briefing Card:
 
 # Regional Strategic Brief Prompt (CEO-Focused)
 regional_strategy_prompt = PromptTemplate.from_template("""
-You are the Chief Sales Officer briefing the CEO. 
-Analyze the Regional Sales Contribution to identify **Strategic Imbalances**.
+You are the Chief Sales Officer briefing the CEO on Regional Sales Performance.
 
-**Data Briefing:**
-- **Top Region:** {top_region} ({top_qty} MT)
-- **Top Region Dominance:** {top_share}% of total volume.
-- **Underperforming Region:** {low_region} ({low_qty} MT).
-- **Regional Gap:** Top region is {gap_efficiency}x larger than bottom region.
+INPUT DATA:
+- Top Region: {top_region} ({top_qty} MT)
+- Top Region Dominance: {top_share}% of total volume
+- Underperforming Region: {low_region} ({low_qty} MT)
+- Regional Gap: Top region is {gap_efficiency}x larger than bottom region
 
-**Mission:**
-Provide a 3-part strategic decision brief.
-1. **Saturation Check:** Is the top region saturated?
-2. **Expansion Opportunity:** Why is the bottom region lagging? (Logistics? Competition? Underserved?)
-3. **Action:** One strategic move to boost the bottom region.
+OUTPUT FORMAT (MAX 150 WORDS):
 
-**Output Format (Strict Plain Text):**
-Briefing Card:
-[One sentence summary of the imbalance]
+🔍 DIAGNOSIS
+[One sentence: root cause of regional imbalance and its business impact]
 
-1. Saturation Risk: [Analysis]
-2. Expansion Opportunity: [Analysis]
-3. CEO Action: [Specific Directive]
+• [Key finding about top region performance]
+• [Key finding about bottom region challenges]
+• [Strategic implication of the gap]
+
+💊 PRESCRIPTION
+Now: [Immediate action for top region] | [Immediate action for bottom region]
+Next: [Strategic initiative to close the gap - be specific about approach, not numbers]
+
+📈 PROGNOSIS
+✓ [Best case outcome if actions are taken]
+⚠️ [Risk if regional imbalance is not addressed]
+
+RULES:
+- Total output: 100-150 words MAX
+- Be brutally direct and CEO-focused
+- DO NOT repeat the input data values (MT, percentages, region names in metrics)
+- Focus on WHY the imbalance exists and WHAT to do
+- Provide actionable strategic insights
+- Include specific action verbs and initiatives
+- Start directly with 🔍 DIAGNOSIS
 """)
 
 
@@ -391,8 +416,9 @@ Analyze the provided Sales Forecast data and provide a professional, actionable 
 sales_diagnostic_prompt = PromptTemplate.from_template("""
 Analyze sales data and provide CEO-level diagnosis in EXACTLY this format:
 
-DATA:
-Current: \u09f3{revenue}M revenue, {volume} MT, {order_count} orders
+
+INPUT DATA:
+Current: ৳{revenue}M revenue, {volume} MT, {order_count} orders
 Changes: {revenue_change}% revenue, {volume_change}% volume, {order_change}% orders (MoM)
 Trend: {trend_summary}
 
@@ -418,6 +444,8 @@ RULES:
 - Be brutally direct
 - Quantify everything (use ৳ for currency)
 - Focus on ROOT CAUSE, not symptoms
+- DO NOT repeat the input data in your response
+- Start directly with the DIAGNOSIS section
 - Prescriptions must be SPECIFIC (not "improve sales")
 - Include probability % in prognosis
 - If data shows healthy growth, say so clearly - don't manufacture problems

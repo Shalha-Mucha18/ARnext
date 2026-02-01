@@ -4,6 +4,7 @@ pydantic
 pydantic-settings
 sqlalchemy
 psycopg2-binary
+asyncpg
 python-dotenv
 python-multipart
 pandas

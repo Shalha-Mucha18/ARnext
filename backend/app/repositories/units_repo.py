@@ -11,9 +11,7 @@ logger = get_logger(__name__)
 
 
 def get_all_units() -> List[Dict[str, str]]:
-    """
-    Get all business units with their IDs and names.
-    
+    """    
     Returns:
         List of dicts with unit_id and business_unit_name
         
@@ -33,12 +31,9 @@ def get_all_units() -> List[Dict[str, str]]:
         
         result_str = db.run(query)
         
-        # Parse result safely (avoiding eval)
         if not result_str or result_str.strip() == '':
             return []
-        
-        # The db.run returns a string representation of a list of tuples
-        # We need to parse it safely
+    
         import ast
         results = ast.literal_eval(result_str)
         
@@ -55,9 +50,7 @@ def get_all_units() -> List[Dict[str, str]]:
 
 
 def get_business_unit_name(unit_id: Optional[str]) -> str:
-    """
-    Get business unit name for a given unit ID.
-    
+    """    
     Args:
         unit_id: Business unit ID
         
@@ -68,11 +61,7 @@ def get_business_unit_name(unit_id: Optional[str]) -> str:
         return "All Units"
     
     try:
-        # Use parameterized query to prevent SQL injection
-        # Note: LangChain's SQLDatabase doesn't support parameterized queries directly
-        # So we sanitize the input instead
-        sanitized_unit_id = str(unit_id).replace("'", "''")  # Escape single quotes
-        
+        sanitized_unit_id = str(unit_id).replace("'", "''")  
         query = f'''
         SELECT "strBusinessUnitName" 
         FROM dim_business_unit 

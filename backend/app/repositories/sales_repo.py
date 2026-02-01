@@ -1,8 +1,6 @@
 """
-Sales repository - handles all sales-related data access.
-
-This module provides secure, centralized access to sales data with proper
-error handling and logging. Replaces eval() with ast.literal_eval() for security.
+Sales repository - handles all sales-related data access. This module provides secure, centralized access to sales data with proper
+error handling and logging.
 """
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import date, datetime
@@ -15,9 +13,7 @@ logger = get_logger(__name__)
 
 
 def _parse_db_result(result_str: str) -> List[Tuple]:
-    """
-    Safely parse database result string.
-    
+    """ 
     Args:
         result_str: String representation of query result
         
@@ -39,8 +35,6 @@ def _parse_db_result(result_str: str) -> List[Tuple]:
 
 def _sanitize_unit_id(unit_id: Optional[str]) -> str:
     """
-    Sanitize unit_id to prevent SQL injection.
-    
     Args:
         unit_id: Raw unit ID
         
@@ -49,14 +43,11 @@ def _sanitize_unit_id(unit_id: Optional[str]) -> str:
     """
     if not unit_id:
         return ""
-    # Escape single quotes and ensure it's a string
     return str(unit_id).replace("'", "''")
 
 
 def _build_unit_filter(unit_id: Optional[str], column_name: str = "unit_id") -> str:
-    """
-    Build safe unit filter clause.
-    
+    """    
     Args:
         unit_id: Unit ID to filter by
         column_name: Column name for the filter
@@ -67,12 +58,10 @@ def _build_unit_filter(unit_id: Optional[str], column_name: str = "unit_id") -> 
     if not unit_id:
         return ""
     
-    # For integer unit_id columns
     try:
         unit_int = int(unit_id)
         return f"AND {column_name} = {unit_int}"
     except ValueError:
-        # If not an integer, treat as string and sanitize
         sanitized = _sanitize_unit_id(unit_id)
         return f'AND {column_name} = \'{sanitized}\''
 
@@ -81,16 +70,12 @@ def get_ytd_sales(
     unit_id: Optional[str] = None,
     fiscal_year: bool = False
 ) -> Dict[str, Any]:
-    """
-    Get Year-to-Date sales comparison: Current Year vs Last Year.
-    
+    """   
     Args:
         unit_id: Optional business unit filter
         fiscal_year: If True, use fiscal year (July-June) instead of calendar year
-        
     Returns:
         Dict with current_ytd, last_ytd, and growth_metrics
-        
     Raises:
         Exception: If database query fails
     """
@@ -127,6 +112,7 @@ def get_ytd_sales(
             unit_id,
             CASE
                 WHEN unit_id IN (4, 144, 188, 189, 232) THEN 'MT'
+                WHEN base_uom IN ('Metric Tons', 'Metric Ton', 'MT', 'Ton') THEN 'MT'
                 ELSE base_uom
             END AS uom_shown,
             COUNT(*) AS total_order,
@@ -150,6 +136,7 @@ def get_ytd_sales(
             unit_id,
             CASE
                 WHEN unit_id IN (4, 144, 188, 189, 232) THEN 'MT'
+                WHEN base_uom IN ('Metric Tons', 'Metric Ton', 'MT', 'Ton') THEN 'MT'
                 ELSE base_uom
             END
         """
@@ -308,6 +295,7 @@ def get_mtd_stats(
             unit_id,
             CASE
                 WHEN unit_id IN (4, 144, 188, 189, 232) THEN 'MT'
+                WHEN base_uom IN ('Metric Tons', 'Metric Ton', 'MT', 'Ton') THEN 'MT'
                 ELSE base_uom
             END AS uom_shown,
             ROUND(
@@ -331,6 +319,7 @@ def get_mtd_stats(
             unit_id,
             CASE
                 WHEN unit_id IN (4, 144, 188, 189, 232) THEN 'MT'
+                WHEN base_uom IN ('Metric Tons', 'Metric Ton', 'MT', 'Ton') THEN 'MT'
                 ELSE base_uom
             END
         """

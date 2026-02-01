@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional
 from operator import itemgetter
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
-from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool
+from langchain_community.tools import QuerySQLDatabaseTool
 from langchain_classic.chains.sql_database.query import create_sql_query_chain
 
 from core.config import settings
@@ -52,7 +52,7 @@ class SalesGPTCore:
         from llm.sql_prompt_enhanced import sql_prompt
         
         self.sql_writer = create_sql_query_chain(llm, db, prompt=sql_prompt)
-        self.sql_executor = QuerySQLDataBaseTool(db=db)
+        self.sql_executor = QuerySQLDatabaseTool(db=db)
 
         self.contextualize_chain = contextualize_prompt | llm | parser
         self.descriptive_chain = descriptive_prompt | llm | parser
@@ -214,46 +214,7 @@ Build upon the previous answer with more depth and context."""
         js = self.entity_extract_chain.invoke({"query": query, "result": result})
         return safe_json_load(js)
 
-    def analyze_regional_performance(self, regional_data: list) -> dict:
-        """Generate AI insights for regional sales performance."""
-        from llm.prompts import regional_insights_prompt
-        
-        # Format data for prompt
-        data_summary = "\n".join([
-            f"- {r['region']}: {r['total_delivery_qty']:.2f} MT ({r['share_percentage']:.1f}% share), {r['order_count']} orders"
-            for r in regional_data[:5]  # Top 5 regions
-        ])
-        
-        # Generate insights
-        chain = regional_insights_prompt | self.llm | parser
-        analysis = chain.invoke({"regional_data": data_summary})
-        
-        # Parse into structured format
-        insights = {
-            "focus_regions": [],
-            "needs_attention": [],
-            "recommendations": []
-        }
-        
-        # Extract focus regions (top 2)
-        for region in regional_data[:2]:
-            insights["focus_regions"].append({
-                "region": region["region"],
-                "share": region["share_percentage"],
-                "qty": region["total_delivery_qty"]
-            })
-        
-        # Extract underperformers (regions with lower share)
-        if len(regional_data) > 5:
-            insights["needs_attention"].append({
-                "region": regional_data[-1]["region"],
-                "share": regional_data[-1]["share_percentage"]
-            })
-        
-        # Add AI-generated recommendations
-        insights["ai_analysis"] = analysis
-        
-        return insights
+
 
     def analyze_sales_metrics(self, current_month: dict, trend_data: list) -> dict:
         """Generate AI insights for sales metrics."""
@@ -366,52 +327,123 @@ Build upon the previous answer with more depth and context."""
 
     def analyze_credit_ratio_ceo(self, credit_data: dict, cash_data: dict, both_data: dict, channel_data: list) -> dict:
         """Generate CEO-focused AI insights for credit sales ratio."""
-        from llm.prompts import credit_ratio_ceo_prompt
         
-        credit_pct = credit_data['percentage']
-        cash_pct = cash_data['percentage']
-        both_pct = both_data['percentage']
+        credit_pct = credit_data.get('percentage', 0)
+        cash_pct = cash_data.get('percentage', 0)
+        both_pct = both_data.get('percentage', 0)
         
-        total_revenue = credit_data['revenue'] + cash_data['revenue'] + both_data['revenue']
+        total_revenue = credit_data.get('revenue', 0) + cash_data.get('revenue', 0) + both_data.get('revenue', 0)
         
         # Find top credit channel
         top_channel = "N/A"
         channel_credit_pct = 0
         if channel_data and len(channel_data) > 0:
-            # Assuming channel_data is sorted by revenue desc
             top_channel = channel_data[0]['channel_name']
             channel_credit_pct = channel_data[0]['percentage_within_type']
+            
+        prompt = f"""You are a Strategic Financial Advisor to the CEO. Provide a COMPREHENSIVE deep-dive analysis of the Credit vs Cash Sales Split.
+
+Data Context:
+- Total Revenue: {total_revenue/1000000:.2f} Million
+- Credit Sales: {credit_pct:.1f}%
+- Cash Sales: {cash_pct:.1f}%
+- Split/Mixed Payment: {both_pct:.1f}%
+- Top Credit Channel: {top_channel} ({channel_credit_pct:.1f}% credit reliance)
+
+Produce a detailed financial strategy report (300-400 words) covering:
+
+1. **Cash Flow & Risk Diagnosis**
+   - Analyze the liquidity impact of the current {credit_pct:.1f}% credit ratio.
+   - Is the business over-leveraged on credit sales? Diagnose the risk to working capital.
+   - Compare Cash vs Credit performance drivers.
+
+2. **Channel Performance Deep Dive**
+   - Evaluate the credit dependency of key channels (e.g. {top_channel}).
+   - Is credit being used as a sales crutch or a strategic growth tool?
+
+3. **Strategic Receivables Directive**
+   - Provide concrete actions for the CFO and Sales Director.
+   - Example targets for credit collection or cash discount policies.
+
+**Style Guidelines:**
+- Tone: Financial, executive, and risk-aware.
+- Format: Use structured Markdown with sub-bullets. Bold key financial metrics.
+- Focus: Cash cycle optimization and risk mitigation."""
+
+        result = self._invoke_json(prompt)
         
-        # Generate insights using LLM
-        chain = credit_ratio_ceo_prompt | self.llm | parser
-        analysis = chain.invoke({
-            "credit_pct": f"{credit_pct:.1f}",
-            "credit_revenue": f"{credit_data['revenue']/1000000000:.2f}",
-            "cash_pct": f"{cash_pct:.1f}",
-            "cash_revenue": f"{cash_data['revenue']/1000000:.0f}",
-            "both_pct": f"{both_pct:.1f}",
-            "both_revenue": f"{both_data['revenue']/1000000:.0f}",
-            "total_revenue": f"{total_revenue/1000000000:.2f}",
-            "top_channel": top_channel,
-            "channel_credit_pct": f"{channel_credit_pct:.1f}"
-        })
-        
-        # Determine risk level programmatically as fallback
-        if credit_pct > 95:
-            risk_level = "Critical"
-        elif credit_pct > 85:
-            risk_level = "High"
-        elif credit_pct > 70:
-            risk_level = "Moderate"
-        else:
-            risk_level = "Low"
-        
+        # Fallback balance calculation still needed for UI badges if used elsewhere, 
+        # but here we focus on the text analysis.
+        balance = "Balanced"
+        if credit_pct > 75: balance = "High Risk"
+        elif cash_pct > 75: balance = "Liquidity Secure"
+
         return {
-            "risk_level": risk_level,
-            "analysis": analysis,
-            "credit_percentage": credit_pct,
-            "total_revenue": total_revenue
+            "channel_balance": balance,
+            "analysis": result.get("analysis", result)
         }
+
+    def analyze_forecast_ceo(self, total_forecast: list, top_items: list, top_territories: list) -> dict:
+        """Generate CEO-focused AI insights for sales forecast."""
+        
+        # Prepare summaries
+        total_summary = "\n".join([f"{x['month']}: {x['qty']:.1f} MT" for x in total_forecast[:6]]) if total_forecast else "No data"
+        item_summary = "\n".join([f"{x['name']}: {x['qty']:.1f} MT" for x in top_items[:5]]) if top_items else "No data"
+        territory_summary = "\n".join([f"{x['name']}: {x['qty']:.1f} MT" for x in top_territories[:5]]) if top_territories else "No data"
+        
+        prompt = f"""You are a Strategic AI Advisor to the CEO. Provide a COMPREHENSIVE deep-dive analysis of the Sales Forecast.
+
+Data Context:
+Global Forecast Trend (Next 6 Months):
+{total_summary}
+
+Top Product Forecast:
+{item_summary}
+
+Top Territory Forecast:
+{territory_summary}
+
+Produce a highly PRECISE strategic outlook report for the CEO.
+
+CONSTRAINT: Focus on strategic implications and directional trends. Avoid extensive lists of numbers, but cite critical KPIs (e.g. "20% drop") if they drive the strategy.
+
+1. **Growth Trajectory Assessment**
+   - Precisely define the trend (e.g. "Stable with upward bias" or "Sharp contraction").
+   - Assess confident in meeting targets based on the trajectory.
+   - Example: "The forecast indicates a robust recovery trajectory..."
+
+2. **Portfolio & Market Dynamics**
+   - Identify the specific products/territories driving the trend.
+   - Highlight structural risks (e.g. over-dependence on a single top territory).
+   - Use terms like "dominant share", "lagging", "accelerating".
+
+3. **Strategic Forward Guidance**
+   - Issue precise directives for Supply Chain (e.g. "Build inventory for [Product]") and Sales.
+   - Focus on *actions* to capitalize on the trend or mitigate the decline.
+
+**Style Guidelines:**
+- Tone: Executive, concise, and ultra-precise. No fluff.
+- Format: Use structured Markdown with sub-bullets.
+- STRICT RULE: Use numbers sparingly to support key points. Focus on qualitative descriptors (Significant, Moderate, Critical)."""
+
+        analysis = self._invoke_json(prompt)
+        
+        # Determine trend direction programmatically
+        trend = "Stable"
+        if len(total_forecast) >= 2:
+            start_qty = total_forecast[0]['qty']
+            end_qty = total_forecast[-1]['qty']
+            if end_qty > start_qty * 1.05:
+                trend = "Rising"
+            elif end_qty < start_qty * 0.95:
+                trend = "Declining"
+            
+        return {
+            "trend": trend,
+            "analysis": analysis.get("analysis", analysis)
+        }
+
+    
     
     def analyze_channel_credit_ratio(self, channels_list: list) -> dict:
         """Generate AI insights for credit sales ratio by channel."""
@@ -515,6 +547,97 @@ Build upon the previous answer with more depth and context."""
             "analysis": analysis
         }
 
+
+
+    def analyze_regional_performance(self, top_regions: list, bottom_regions: list, total_volume: float) -> dict:
+        """Generate CEO strategic brief for regional sales."""
+        from llm.prompts import regional_strategy_prompt
+        
+        if not top_regions or not bottom_regions:
+             return {"analysis": "Insufficient data for strategic analysis."}
+
+        # metrics for top performer
+        top = top_regions[0]
+        top_qty = top['quantity']
+        
+        # metrics for bottom performer
+        low = bottom_regions[0] 
+        low_qty = low['quantity']
+        
+        # Top Dominance
+        top_share = (top_qty / total_volume * 100) if total_volume > 0 else 0
+        
+        # Gap
+        gap_efficiency = top_qty / low_qty if low_qty > 0 else 1.0
+
+        # Generate insights
+        chain = regional_strategy_prompt | self.llm | parser
+        analysis = chain.invoke({
+            "top_region": top['name'],
+            "top_qty": f"{top_qty:.1f}",
+            "top_share": f"{top_share:.1f}",
+            "low_region": low['name'],
+            "low_qty": f"{low_qty:.1f}",
+            "gap_efficiency": f"{gap_efficiency:.1f}"
+        })
+        
+        return {
+            "analysis": analysis
+        }
+
+    def _invoke_json(self, prompt_text: str) -> dict:
+        import json
+        import re
+
+        # Invoke directly to allow brace characters in prompt
+        response = self.llm.invoke(prompt_text)
+        
+        # Handle response (it might be AIMessage or string)
+        if hasattr(response, 'content'):
+            response_text = response.content
+        else:
+            response_text = str(response)
+        
+        # Extract JSON
+        try:
+            # Try to find JSON block
+            json_match = re.search(r'\{.*\}', response_text.replace('\n', ' '), re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+            return {"analysis": response_text}
+        except:
+            return {"analysis": response_text}
+
+    def analyze_area_performance(self, top_areas: list, bottom_areas: list, total_volume: float) -> dict:
+        """Analyze area-level performance within regions."""
+        prompt = f"""You are a Strategic AI Advisor to the CEO. Provide a COMPREHENSIVE deep-dive analysis of Area sales performance.
+
+Data Context:
+- Total Sales Volume: {total_volume:,.2f} MT
+- Top Performing Areas: {json.dumps(top_areas)}
+- Underperforming Areas: {json.dumps(bottom_areas)}
+
+Produce a detailed strategic report (300-400 words) covering:
+
+1. **Top Performance Drivers (Detailed Breakdown)**
+   - Analyze *why* the top areas are winning. Is it volume concentration? Efficiency?
+   - Cite specific metrics (Volume, Contribution %) to validate success.
+
+2. **Underperformance Diagnosis (Root Cause Analysis)**
+   - Don't just list low numbers. Diagnose the *problem*.
+   - Compare top vs. bottom gaps. Is it a market coverage issue or execution failure?
+
+3. **Strategic Assignments for Area Managers**
+   - Provide granular, tactical instructions for specific Area Managers.
+   - Example: "Manager of [Area X] must focus on [Specific Action] to recover [Metric]."
+
+**Style Guidelines:**
+- Tone: Executive but highly detailed and analytical.
+- Format: Use structured Markdown with sub-bullets. Bold all key data points.
+- Depth: Do not summarize. Go deep into the data implications."""
+        
+        return self._invoke_json(prompt)
+
     def analyze_territory_performance(self, top_territories: list, bottom_territories: list, total_volume: float) -> dict:
         """Generate CEO strategic brief for territory performance."""
         from llm.prompts import territory_strategy_prompt
@@ -563,41 +686,6 @@ Build upon the previous answer with more depth and context."""
             "analysis": analysis
         }
 
-    def analyze_regional_performance(self, top_regions: list, bottom_regions: list, total_volume: float) -> dict:
-        """Generate CEO strategic brief for regional sales."""
-        from llm.prompts import regional_strategy_prompt
-        
-        if not top_regions or not bottom_regions:
-             return {"analysis": "Insufficient data for strategic analysis."}
-
-        # metrics for top performer
-        top = top_regions[0]
-        top_qty = top['quantity']
-        
-        # metrics for bottom performer
-        low = bottom_regions[0] 
-        low_qty = low['quantity']
-        
-        # Top Dominance
-        top_share = (top_qty / total_volume * 100) if total_volume > 0 else 0
-        
-        # Gap
-        gap_efficiency = top_qty / low_qty if low_qty > 0 else 1.0
-
-        # Generate insights
-        chain = regional_strategy_prompt | self.llm | parser
-        analysis = chain.invoke({
-            "top_region": top['name'],
-            "top_qty": f"{top_qty:.1f}",
-            "top_share": f"{top_share:.1f}",
-            "low_region": low['name'],
-            "low_qty": f"{low_qty:.1f}",
-            "gap_efficiency": f"{gap_efficiency:.1f}"
-        })
-        
-        return {
-            "analysis": analysis
-        }
 
     def analyze_forecast(self, total_forecast: list, top_items: list, top_territories: list) -> dict:
         """Generate AI insights for sales forecast."""
@@ -631,79 +719,3 @@ Build upon the previous answer with more depth and context."""
             "analysis": analysis
         }
     
-    def analyze_forecast_ceo(self, global_data: list, top_items: list, top_territories: list, growth_metrics: dict) -> str:
-        """Generate CEO-focused strategic insights for sales forecast."""
-        from llm.prompts import forecast_analysis_prompt
-        
-        # Format global forecast summary
-        total_qty = sum(d['qty'] for d in global_data) if global_data else 0
-        avg_monthly = total_qty / len(global_data) if global_data else 0
-        
-        global_summary = f"""
-- Total Forecasted Volume (Next 6 Months): {total_qty:,.0f} MT
-- Average Monthly Forecast: {avg_monthly:,.0f} MT
-- Trend: {"Growing" if growth_metrics.get('is_growing', False) else "Declining"} ({growth_metrics.get('volume_growth_pct', 0):.1f}%)
-- Momentum: {growth_metrics.get('momentum', 'Stable')}
-        """.strip()
-        
-        # Format top items
-        items_summary = "\n".join([
-            f"  - {item['name']}: {item['qty']:,.0f} MT"
-            for item in top_items[:5]
-        ]) if top_items else "No item data available"
-        
-        # Format top territories
-        territories_summary = "\n".join([
-            f"  - {terr['name']}: {terr['qty']:,.0f} MT"
-            for terr in top_territories[:5]
-        ]) if top_territories else "No territory data available"
-        
-        # Format growth trends
-        growth_summary = f"""
-- Volume Growth Rate: {growth_metrics.get('volume_growth_pct', 0):.1f}%
-- Order Growth Rate: {growth_metrics.get('order_growth_pct', 0):.1f}%
-- Market Momentum: {growth_metrics.get('momentum', 'Stable')}
-        """.strip()
-        
-        # Generate insights
-        chain = forecast_analysis_prompt | self.llm | parser
-        
-        result = chain.invoke({
-            "global_forecast": global_summary,
-            "top_items": items_summary,
-            "top_territories": territories_summary,
-            "growth_trends": growth_summary
-        })
-        
-        return result
-    
-    def analyze_area_performance(self, top_areas: list, bottom_areas: list, total_volume: float) -> dict:
-        """Generate AI insights for area performance."""
-        from llm.prompts import area_performance_prompt
-        
-        # Format top areas
-        top_summary = "\n".join([
-            f"  - {area['name']}: {area['quantity']:,.0f} MT ({area['orders']} orders)"
-            for area in top_areas[:5]
-        ]) if top_areas else "No data"
-        
-        # Format bottom areas
-        bottom_summary = "\n".join([
-            f"  - {area['name']}: {area['quantity']:,.0f} MT ({area['orders']} orders)"
-            for area in bottom_areas[:5]
-        ]) if bottom_areas else "No data"
-        
-        # Calculate market concentration
-        top_5_volume = sum(a['quantity'] for a in top_areas[:5])
-        concentration_pct = (top_5_volume / total_volume * 100) if total_volume > 0 else 0
-        
-        chain = area_performance_prompt | self.llm | parser
-        
-        analysis = chain.invoke({
-            "top_areas": top_summary,
-            "bottom_areas": bottom_summary,
-            "total_volume": f"{total_volume:,.0f} MT",
-            "concentration": f"{concentration_pct:.1f}%"
-        })
-        
-        return {"analysis": analysis}

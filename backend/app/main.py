@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.logging import setup_logging
 import os
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from app.utils.exceptions import AppException
 
 # Initialize logging
 setup_logging()
@@ -9,11 +12,10 @@ setup_logging()
 app = FastAPI(
     title="ARNext Intelligence API",
     version="2.0.0",
-    description="Sales Analytics API with AI-powered insights"
+    description="Akij Resource AI powered insights"
 )
 
 # CORS Configuration
-# TODO: Replace with specific origins in production
 origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
@@ -23,10 +25,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include new V1 API router (refactored endpoints)
 from app.api.v1.api import api_router
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api/v1")
 
-# Include legacy router for endpoints not yet refactored
-from .api_legacy import router as legacy_router
-app.include_router(legacy_router)
+
+
+@app.exception_handler(AppException)
+async def app_exception_handler(request: Request, exc: AppException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "message": exc.message,
+            "path": str(request.url)
+        }
+    )

@@ -42,3 +42,7 @@ Thumbs.db
 *~
 .tmp/
 temp/
+
+# Reports and Data
+lint_report*.txt
+NoteBook/*.csv

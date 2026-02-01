@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     PG_PASSWORD: str
     PG_SCHEMA: str = "public"
 
+    @property
+    def ASYNC_DATABASE_URL(self) -> str:
+        return f"postgresql+asyncpg://{self.PG_USER}:{self.PG_PASSWORD}@{self.PG_HOST}:{self.PG_PORT}/{self.PG_DB}"
+
+
     # Groq
     GROQ_API_KEY: str
     GROQ_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
@@ -17,7 +22,7 @@ class Settings(BaseSettings):
 
     # Safety
     DEFAULT_LIMIT: int = 200
-    ALLOWED_TABLES: str = "delivery_data"
+    ALLOWED_TABLES: str = "tbldeliveryinfo,AIL_Monthly_Total_Final_Territory,AIL_Monthly_Total_Forecast,AIL_Monthly_Total_Item,dim_business_unit"
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"

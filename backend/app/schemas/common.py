@@ -1,21 +1,20 @@
-"""
-Common Pydantic schemas used across the application.
-"""
+from typing import Generic, TypeVar, Optional
 from pydantic import BaseModel
-from typing import Optional, Any, Dict
 
-class ErrorResponse(BaseModel):
-    """Standard error response."""
-    detail: str
-    error_code: Optional[str] = None
-    
-class SuccessResponse(BaseModel):
-    """Standard success response."""
-    message: str
-    data: Optional[Dict[str, Any]] = None
+T = TypeVar('T')
 
-class MetricsBase(BaseModel):
-    """Base metrics model."""
-    total_orders: int
-    total_quantity: float
-    uom: str = "MT"
+class StandardResponse(BaseModel, Generic[T]):
+    """Standard API response format"""
+    status: str = "success"
+    data: Optional[T] = None
+    message: Optional[str] = None
+    errors: Optional[dict] = None
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Paginated response format"""
+    status: str = "success"
+    data: list[T]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

@@ -5,7 +5,7 @@ This module provides secure, parameterized queries for business unit data.
 """
 from typing import List, Dict, Optional
 from core.logging import get_logger
-from db.engine import db
+from db.engine import get_sync_db
 
 logger = get_logger(__name__)
 
@@ -29,7 +29,7 @@ def get_all_units() -> List[Dict[str, str]]:
         ORDER BY d."unit_id"
         '''
         
-        result_str = db.run(query)
+        result_str = get_sync_db().run(query)
         
         if not result_str or result_str.strip() == '':
             return []
@@ -69,7 +69,7 @@ def get_business_unit_name(unit_id: Optional[str]) -> str:
         LIMIT 1
         '''
         
-        result_str = db.run(query)
+        result_str = get_sync_db().run(query)
         
         if not result_str or result_str.strip() == '':
             return f"Unit {unit_id}"

@@ -15,21 +15,15 @@ class RFMService:
         if df.empty:
             return pd.DataFrame()
         
-        # Convert delivery_date to datetime
         df['delivery_date'] = pd.to_datetime(df['delivery_date'])
         
-        # Calculate reference date (day after last transaction)
         reference_date = df['delivery_date'].max() + timedelta(days=1)
         
-        # Calculate RFM metrics
-        # Calculate RFM metrics
         rfm_df = df.groupby(['customer_id', 'customer_name']).agg(
             Recency=('delivery_date', lambda x: (reference_date - x.max()).days),
             Frequency=('delivery_date', 'count'),
             Monetary=('monetary', 'sum')
         ).reset_index()
-        
-        # rfm_df already has correct column names now
         
         # Calculate rank percentiles (normalized scores 0-100)
         rfm_df['R_rank_norm'] = rfm_df['Recency'].rank(pct=True, ascending=False) * 100
@@ -70,23 +64,23 @@ class RFMService:
         
         segment_summary.columns = [
             'segment', 'customer_count', 'total_orders', 
-            'total_revenue', 'avg_rfm_score'
+            'total_volume', 'avg_rfm_score'
         ]
         
         # Calculate percentages
         total_customers = segment_summary['customer_count'].sum()
-        total_revenue = segment_summary['total_revenue'].sum()
+        total_volume = segment_summary['total_volume'].sum()
         
         segment_summary['customer_percentage'] = (
             segment_summary['customer_count'] / total_customers * 100
         ).round(2)
         
-        segment_summary['revenue_percentage'] = (
-            segment_summary['total_revenue'] / total_revenue * 100
+        segment_summary['volume_percentage'] = (
+            segment_summary['total_volume'] / total_volume * 100
         ).round(2)
         
         segment_summary['avg_rfm_score'] = segment_summary['avg_rfm_score'].round(2)
-        segment_summary['total_revenue'] = segment_summary['total_revenue'].round(2)
+        segment_summary['total_volume'] = segment_summary['total_volume'].round(2)
         
         # Sort by segment priority
         segment_order = {'Platinum': 0, 'Gold': 1, 'Silver': 2, 'Occasional': 3, 'Inactive': 4}
@@ -112,7 +106,7 @@ class RFMService:
                 'metadata': {
                     'total_customers': 0,
                     'total_transactions': 0,
-                    'total_revenue': 0,
+                    'total_volume': 0,
                     'analysis_date': datetime.now().isoformat(),
                     'unit_id': unit_id,
                     'date_range': {
@@ -140,7 +134,7 @@ class RFMService:
             'metadata': {
                 'total_customers': len(customers),
                 'total_transactions': summary.get('total_transactions', 0),
-                'total_revenue': summary.get('total_revenue', 0),
+                'total_volume': summary.get('total_volume', 0),
                 'analysis_date': datetime.now().isoformat(),
                 'unit_id': unit_id,
                 'date_range': {

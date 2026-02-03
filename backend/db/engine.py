@@ -11,11 +11,9 @@ def make_pg_url() -> str:
 engine = create_engine(
     make_pg_url(),
     poolclass=QueuePool,
-    pool_size=10,             # Balanced to prevent server exhaustion
-    max_overflow=15,          # Total max: 25 connections for sync pool
+    pool_size=2,             
+    max_overflow=1,           
     pool_pre_ping=True,       
-    pool_recycle=1800,        # Recycle every 30 min
-    pool_timeout=60,          # Wait up to 60s for connection          
     echo=False,
     connect_args={
         'connect_timeout': 10,
@@ -23,4 +21,17 @@ engine = create_engine(
     }
 )
 
-db = SQLDatabase(engine, schema=settings.PG_SCHEMA)
+
+# Singleton instance for lazy loading
+_db_instance = None
+
+def get_sync_db() -> SQLDatabase:
+    """
+    Lazy load the synchronous database connection.
+    This prevents the app from crashing at startup if the DB is full.
+    Connection is only established when this function is first called.
+    """
+    global _db_instance
+    if _db_instance is None:
+        _db_instance = SQLDatabase(engine, schema=settings.PG_SCHEMA)
+    return _db_instance

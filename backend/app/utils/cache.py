@@ -35,15 +35,8 @@ def cache_response(expire: int = 300):
             
             # Store in cache
             try:
-                # For Pydantic models, we might need jsonable_encoder or model_dump
-                # Assuming result is Pydantic model or dict
                 if hasattr(result, "model_dump_json"):
                     data_to_store = result.model_dump_json()
-                    # But json.loads expects generic json, model_dump_json produces string.
-                    # Better to use jsonable_encoder if available or simple dict dump
-                    # For simplicity in this util, we rely on default json dump
-                    # If result is already a Response object, this might fail.
-                    # Taking simple approach for data objects:
                     pass 
                 
                 # Simple serialization for standard dicts/lists

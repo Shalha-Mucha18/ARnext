@@ -1,16 +1,12 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import NullPool
 from core.config import settings
 
-# Optimized async engine with balanced pooling to prevent connection exhaustion
-# Configuration: 10 base + 15 overflow = 25 max connections
 async_engine = create_async_engine(
     settings.ASYNC_DATABASE_URL,
     echo=False,
-    pool_size=10,             # Balanced for concurrent requests without exhausting server
-    max_overflow=15,          # Total max: 25 connections for async pool
-    pool_pre_ping=True,
-    pool_recycle=1800,        # Recycle connections every 30 min to prevent stale connections
-    pool_timeout=60,          # Wait up to 60s for a connection
+    poolclass=NullPool,     
+
 )
 
 # Create async session factory
@@ -22,18 +18,29 @@ async_session_maker = async_sessionmaker(
     autoflush=False,
 )
 
-# Dependency for FastAPI
-async def get_db() -> AsyncSession:
+
+
+import asyncio
+from typing import AsyncGenerator
+
+_db_semaphore = asyncio.Semaphore(1) 
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency to provide an async database session.
     Automatically handles commit/rollback and closing.
+    Uses a semaphore to prevent opening too many simultaneous connections.
     """
-    async with async_session_maker() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    async with _db_semaphore:
+        async with async_session_maker() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception as e:
+                import traceback
+                with open("backend_errors.txt", "a") as f:
+                    f.write(f"DB Session Error: {str(e)}\n{traceback.format_exc()}\n")
+                await session.rollback()
+                raise
+            finally:
+                await session.close()

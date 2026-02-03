@@ -103,7 +103,7 @@ class RFMRepository:
         SELECT 
             COUNT(DISTINCT customer_id) as total_customers,
             COUNT(*) as total_transactions,
-            SUM({get_uom_conversion_sql()}) as total_revenue,
+            SUM({get_uom_conversion_sql()}) as total_volume,
             MIN(delivery_date) as earliest_date,
             MAX(delivery_date) as latest_date
         FROM tbldeliveryinfo
@@ -133,7 +133,7 @@ class RFMRepository:
             return {
                 'total_customers': 0,
                 'total_transactions': 0,
-                'total_revenue': 0,
+                'total_volume': 0,
                 'earliest_date': None,
                 'latest_date': None
             }
@@ -141,7 +141,7 @@ class RFMRepository:
         return {
             'total_customers': row[0] or 0,
             'total_transactions': row[1] or 0,
-            'total_revenue': float(row[2]) if row[2] else 0,
+            'total_volume': float(row[2]) if row[2] else 0,
             'earliest_date': row[3].isoformat() if row[3] else None,
             'latest_date': row[4].isoformat() if row[4] else None
         }

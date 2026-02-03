@@ -67,6 +67,11 @@ async def get_ytd_sales(
         logger.error(f"Database error: {e.message}")
         raise HTTPException(status_code=500, detail="Failed to retrieve sales data")
     except Exception as e:
+        import traceback
+        with open("debug_log.txt", "a") as f:
+            f.write(f"Error in ytd_sales: {str(e)}\n")
+            f.write(traceback.format_exc())
+            f.write("\n" + "-"*20 + "\n")
         logger.exception(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 

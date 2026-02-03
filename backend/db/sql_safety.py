@@ -35,23 +35,19 @@ def is_select_only(sql: str) -> bool:
 
 def ensure_limit(sql: str, default_limit: int) -> str:
    
-    # Check if query uses aggregates (no need for LIMIT - they return 1 row)
+    # Check if query uses aggregates (no need for LIMIT - they  return 1 row)
     if re.search(r'\b(SUM|COUNT|AVG|MIN|MAX)\s*\(', sql, flags=re.IGNORECASE):
         # Aggregate query - don't add LIMIT, just return as-is
         return sql
-    
+            
     # Check if LIMIT already exists
     limit_match = re.search(r'\bLIMIT\s+(\d+)\b', sql, flags=re.IGNORECASE)
     
     if limit_match:
         existing_limit = int(limit_match.group(1))
-        # Use the minimum for safety - don't allow LLM to request more than default
         final_limit = min(existing_limit, default_limit)
-        # Replace the existing LIMIT with the final limit
         return re.sub(r'\bLIMIT\s+\d+\b', f'LIMIT {final_limit}', sql, flags=re.IGNORECASE)
     else:
-        # No LIMIT exists, add the default
-        # Remove trailing semicolon if present to avoid syntax error (LIMIT must be before ;)
         cleaned_sql = sql.strip().rstrip(';')
         return cleaned_sql + f"\nLIMIT {default_limit}"
 

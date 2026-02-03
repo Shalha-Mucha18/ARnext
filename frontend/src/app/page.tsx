@@ -165,10 +165,10 @@ type RFMSegmentSummary = {
   segment: string;
   customer_count: number;
   total_orders: number;
-  total_revenue: number;
+  total_volume: number;
   avg_rfm_score: number;
   customer_percentage: number;
-  revenue_percentage: number;
+  volume_percentage: number;
 };
 
 type RFMAnalysisResponse = {
@@ -177,7 +177,7 @@ type RFMAnalysisResponse = {
   metadata: {
     total_customers: number;
     total_transactions: number;
-    total_revenue: number;
+    total_volume: number;
     analysis_date: string;
     unit_id: number | null;
     date_range: {
@@ -375,6 +375,7 @@ export default function Home() {
   const [notification, setNotification] = useState<string>("");
   const [selectedForecastItem, setSelectedForecastItem] = useState<string | null>(null);
   const [selectedForecastTerritory, setSelectedForecastTerritory] = useState<string | null>(null);
+  const [selectedSegment, setSelectedSegment] = useState<string>('All');
 
   const endRef = useRef<HTMLDivElement | null>(null);
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -2318,28 +2319,41 @@ export default function Home() {
           {
             activeSection === 'market-intelligence' && (
               <>
-                <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                  {/* RFM Overview Stats */}
-                  <div className="panel dashboard-panel">
-                    <div className="panel-header">
-                      <h2>RFM Analysis Overview</h2>
-                    </div>
-                    <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                      <div className="kpi-card">
-                        <div className="kpi-label">Total Customers</div>
-                        <div className="kpi-value">{rfmData?.metadata.total_customers.toLocaleString() || '0'}</div>
+                {/* Page Title */}
+                <div style={{ marginBottom: '24px', textAlign: 'center' }}>
+                  <h1 style={{ fontSize: '1.875rem', fontWeight: 700, color: textColor, margin: 0 }}>
+                    RFM Analysis
+                  </h1>
+
+                </div>
+
+                {/* Header Section with Key Metrics */}
+                <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', marginBottom: '24px' }}>
+                  {/* Analysis Period Card */}
+                  <div className="panel dashboard-panel" style={{
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%)',
+                    borderLeft: '4px solid #8b5cf6'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '1.25rem',
+                        boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+                      }}>
+                        <i className="fa-solid fa-calendar-days"></i>
                       </div>
-                      <div className="kpi-card">
-                        <div className="kpi-label">Total Transactions</div>
-                        <div className="kpi-value">{rfmData?.metadata.total_transactions.toLocaleString() || '0'}</div>
-                      </div>
-                      <div className="kpi-card">
-                        <div className="kpi-label">Total Volume</div>
-                        <div className="kpi-value">{rfmData?.metadata.total_revenue.toLocaleString()}</div>
-                      </div>
-                      <div className="kpi-card">
-                        <div className="kpi-label">Analysis Period</div>
-                        <div className="kpi-value" style={{ fontSize: '0.9rem' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.75rem', color: mutedColor, fontWeight: 500, marginBottom: '4px' }}>
+                          Analysis Period
+                        </div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: textColor, lineHeight: 1.3 }}>
                           {rfmData?.metadata.date_range.start && rfmData?.metadata.date_range.end
                             ? `${rfmData.metadata.date_range.start} to ${rfmData.metadata.date_range.end}`
                             : 'All Time'}
@@ -2347,6 +2361,139 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Total Customers Card */}
+                  <div className="panel dashboard-panel" style={{
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%)',
+                    borderLeft: '4px solid #3b82f6'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '1.25rem',
+                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                      }}>
+                        <i className="fa-solid fa-users"></i>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.75rem', color: mutedColor, fontWeight: 500, marginBottom: '4px' }}>
+                          Total Customers
+                        </div>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: textColor, lineHeight: 1 }}>
+                          {rfmData?.metadata.total_customers.toLocaleString() || '0'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total Volume Card */}
+                  <div className="panel dashboard-panel" style={{
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%)',
+                    borderLeft: '4px solid #f59e0b'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '1.25rem',
+                        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
+                      }}>
+                        <i className="fa-solid fa-sack-dollar"></i>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.75rem', color: mutedColor, fontWeight: 500, marginBottom: '4px' }}>
+                          Total Volume
+                        </div>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: textColor, lineHeight: 1 }}>
+                          {rfmData?.metadata.total_volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '0.875rem', fontWeight: 500, color: mutedColor }}>MT</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Segment Breakdown Cards */}
+                {rfmData?.segment_summary && rfmData.segment_summary.length > 0 && (
+                  <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', marginBottom: '24px' }}>
+                    {rfmData.segment_summary
+                      .sort((a, b) => {
+                        const order: { [key: string]: number } = { 'Platinum': 0, 'Gold': 1, 'Silver': 2, 'Occasional': 3, 'Inactive': 4 };
+                        return order[a.segment] - order[b.segment];
+                      })
+                      .map((segment, index) => {
+                        const segmentConfig: { [key: string]: { color: string, icon: string, gradient: string } } = {
+                          'Platinum': { color: '#FFD700', icon: 'fa-crown', gradient: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)' },
+                          'Gold': { color: '#FFA500', icon: 'fa-medal', gradient: 'linear-gradient(135deg, #FFA500 0%, #FF8C00 100%)' },
+                          'Silver': { color: '#C0C0C0', icon: 'fa-award', gradient: 'linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%)' },
+                          'Occasional': { color: '#87CEEB', icon: 'fa-user-clock', gradient: 'linear-gradient(135deg, #87CEEB 0%, #4682B4 100%)' },
+                          'Inactive': { color: '#D3D3D3', icon: 'fa-user-slash', gradient: 'linear-gradient(135deg, #D3D3D3 0%, #A9A9A9 100%)' }
+                        };
+                        const config = segmentConfig[segment.segment] || { color: '#3b82f6', icon: 'fa-user', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' };
+
+                        return (
+                          <div key={index} className="panel dashboard-panel" style={{
+                            background: `linear-gradient(135deg, ${config.color}15 0%, ${config.color}08 100%)`,
+                            borderLeft: `4px solid ${config.color}`,
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}>
+                            <div style={{ position: 'relative', zIndex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                <div style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '8px',
+                                  background: config.gradient,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: segment.segment === 'Platinum' || segment.segment === 'Gold' ? '#000' : 'white',
+                                  fontSize: '0.875rem',
+                                  boxShadow: `0 2px 8px ${config.color}40`
+                                }}>
+                                  <i className={`fa-solid ${config.icon}`}></i>
+                                </div>
+                                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: textColor }}>
+                                  {segment.segment}
+                                </div>
+                              </div>
+                              <div style={{ marginBottom: '8px' }}>
+                                <div style={{ fontSize: '0.7rem', color: mutedColor, marginBottom: '2px' }}>Customers</div>
+                                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: textColor }}>
+                                  {segment.customer_count.toLocaleString()}
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 500, color: mutedColor, marginLeft: '4px' }}>
+                                    ({segment.customer_percentage}%)
+                                  </span>
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.7rem', color: mutedColor, marginBottom: '2px' }}>Volume Share</div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: textColor }}>
+                                  {segment.volume_percentage}%
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+
+                <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
 
                   {/* Customer Segment Distribution */}
                   <div className="panel dashboard-panel">
@@ -2392,7 +2539,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Revenue by Segment */}
+                  {/* Volume by Segment */}
                   <div className="panel dashboard-panel">
                     <div className="panel-header">
                       <h2>Volume Distribution by Segment</h2>
@@ -2403,12 +2550,12 @@ export default function Home() {
                           <PieChart>
                             <Pie
                               data={rfmData.segment_summary}
-                              dataKey="total_revenue"
+                              dataKey="total_volume"
                               nameKey="segment"
                               cx="50%"
                               cy="50%"
                               outerRadius={100}
-                              label={(entry: any) => `${entry.segment}: ${entry.revenue_percentage}%`}
+                              label={(entry: any) => `${entry.segment}: ${entry.volume_percentage}%`}
                             >
                               {rfmData.segment_summary.map((entry, index) => {
                                 const colors: { [key: string]: string } = {
@@ -2440,8 +2587,21 @@ export default function Home() {
 
                   {/* Top Customers by Segment */}
                   <div className="panel dashboard-panel full" style={{ gridColumn: '1 / -1' }}>
-                    <div className="panel-header">
-                      <h2>Top Customers (Platinum & Gold)</h2>
+                    <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h2>Top Customers</h2>
+                      <select
+                        value={selectedSegment}
+                        onChange={(e) => setSelectedSegment(e.target.value)}
+                        className="select-input"
+                        style={{ width: '200px' }}
+                      >
+                        <option value="All">All Segments</option>
+                        <option value="Platinum">Platinum</option>
+                        <option value="Gold">Gold</option>
+                        <option value="Silver">Silver</option>
+                        <option value="Occasional">Occasional</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
                     </div>
                     <div style={{ overflowX: 'auto', maxHeight: '400px', overflowY: 'auto' }}>
                       {rfmData?.customers && rfmData.customers.length > 0 ? (
@@ -2458,13 +2618,14 @@ export default function Home() {
                           </thead>
                           <tbody>
                             {rfmData.customers
-                              .filter(c => c.Customer_segment === 'Platinum' || c.Customer_segment === 'Gold')
+                              .filter(c => selectedSegment === 'All' ? true : c.Customer_segment === selectedSegment)
                               .sort((a, b) => b.RFM_Score - a.RFM_Score)
-                              .slice(0, 20)
+                              .slice(0, 50)
                               .map((customer, idx) => {
                                 const segmentColors: { [key: string]: string } = {
                                   'Platinum': '#FFD700',
-                                  'Gold': '#FFA500'
+                                  'Gold': '#FFA500',
+                                  'Silver': '#C0C0C0'
                                 };
                                 return (
                                   <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>

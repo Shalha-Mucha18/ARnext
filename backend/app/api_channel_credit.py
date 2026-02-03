@@ -1,7 +1,7 @@
 @router.get("/v1/credit-sales-ratio-by-channel")
 def get_credit_sales_ratio_by_channel(unit_id: str = None, month: str = None):
     """Get credit vs cash sales ratio breakdown by channel based on credit_facility_type."""
-    from db.engine import db
+    from db.engine import get_sync_db
     
     try:
         unit_filter = f" AND \"unit_id\" = '{unit_id}'" if unit_id else ""
@@ -16,7 +16,7 @@ def get_credit_sales_ratio_by_channel(unit_id: str = None, month: str = None):
             LIMIT 1
             '''
             try:
-                db_result = db.run(latest_month_query)
+                db_result = get_sync_db().run(latest_month_query)
                 if not db_result or db_result.strip() == '':
                     latest_result = []
                 else:
@@ -70,7 +70,7 @@ def get_credit_sales_ratio_by_channel(unit_id: str = None, month: str = None):
         '''
         
         try:
-            db_result = db.run(query)
+            db_result = get_sync_db().run(query)
             if not db_result or db_result.strip() == '':
                 result = []
             else:

@@ -44,10 +44,8 @@ class AnalyticsService:
         year: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Get top customers with month and year as integers"""
-        # Convert unit_id to string for _parse_unit_id
         unit_id_str = str(unit_id) if unit_id is not None else None
         
-        # Use year and month directly
         start_date, end_date = self._get_date_range(year, month)
         unit_id_int = self._parse_unit_id(unit_id_str)
         
@@ -56,7 +54,7 @@ class AnalyticsService:
     async def get_credit_ratio(
         self,
         unit_id: Optional[int] = None,
-        month_str: Optional[str] = None, # "YYYY-MM"
+        month_str: Optional[str] = None,
         year: Optional[int] = None,
         generate_insights: bool = False,
         core_engine: Any = None
@@ -184,7 +182,6 @@ class AnalyticsService:
 
     def _parse_month_str(self, month_str: str):
         try:
-            # "YYYY-MM"
             parts = month_str.split('-')
             year = int(parts[0])
             month = int(parts[1])

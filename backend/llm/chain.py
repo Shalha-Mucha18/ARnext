@@ -10,7 +10,7 @@ from langchain_classic.chains.sql_database.query import create_sql_query_chain
 
 from core.config import settings
 from db.sql_safety import extract_sql, is_select_only, ensure_limit, enforce_allowlist
-from db.engine import db
+from db.engine import get_sync_db
 from llm.prompts import (
     contextualize_prompt, descriptive_prompt, prescriptive_prompt, entity_extract_prompt,
     reasoning_step1_prompt, reasoning_step2_prompt, reasoning_step3_prompt, reasoning_step4_prompt,
@@ -51,8 +51,8 @@ class SalesGPTCore:
         # Use custom SQL prompt for speed and accuracy (1 call vs 5 calls)
         from llm.sql_prompt_enhanced import sql_prompt
         
-        self.sql_writer = create_sql_query_chain(llm, db, prompt=sql_prompt)
-        self.sql_executor = QuerySQLDatabaseTool(db=db)
+        self.sql_writer = create_sql_query_chain(llm, get_sync_db(), prompt=sql_prompt)
+        self.sql_executor = QuerySQLDatabaseTool(db=get_sync_db())
 
         self.contextualize_chain = contextualize_prompt | llm | parser
         self.descriptive_chain = descriptive_prompt | llm | parser
@@ -124,16 +124,16 @@ Build upon the previous answer with more depth and context."""
         # Combine all steps into structured response
         structured_answer = f"""**Analysis:**
 
-📊 **Data Insights:**
+**Data Insights:**
 {observations}
 
-🔍 **Patterns Identified:**
+**Patterns Identified:**
 {patterns}
 
-💡 **Business Implications:**
+**Business Implications:**
 {implications}
 
-✅ **Recommendations:**
+**Recommendations:**
 {recommendations}"""
         
         return structured_answer

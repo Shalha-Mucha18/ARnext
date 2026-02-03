@@ -244,13 +244,13 @@ Provide 3 precise insights. Use short bullet points.
 
 **Output Format (Plain Text):**
 
-🎯 RISK: [Level]
+RISK: [Level]
 [ONE sentence impact]
 
-💰 CASH TIED UP: ৳[amount]B
+CASH TIED UP: ৳[amount]B
 [ONE sentence opportunity cost]
 
-✅ ACTIONS
+ACTIONS
 • Week: [Immediate 5-word action]
 • Month: [Strategy] (Target: ৳[amount])
 • Quarter: [Long-term goal]
@@ -267,20 +267,20 @@ INPUT DATA:
 
 OUTPUT FORMAT (MAX 150 WORDS):
 
-🔍 DIAGNOSIS
+DIAGNOSIS
 [One sentence: root cause of concentration risk and business impact]
 
 • [Key finding about customer dependency level]
 • [Key finding about diversification status]
 • [Strategic implication of current concentration]
 
-💊 PRESCRIPTION
+PRESCRIPTION
 Now: [Immediate action for top customers] | [Immediate action for diversification]
 Next: [Strategic initiative to reduce concentration risk]
 
-📈 PROGNOSIS
+PROGNOSIS
 ✓ [Best case outcome if diversification succeeds]
-⚠️ [Risk if concentration continues or worsens]
+Risk if concentration continues or worsens
 
 RULES:
 - Total output: 100-150 words MAX
@@ -289,7 +289,7 @@ RULES:
 - Focus on WHY the concentration exists and WHAT to do
 - Provide actionable strategic insights
 - Include specific action verbs and initiatives
-- Start directly with 🔍 DIAGNOSIS
+- Start directly with DIAGNOSIS
 """)
 
 # Sales Growth Prompt
@@ -359,13 +359,13 @@ OUTPUT FORMAT (MAX 150 WORDS):
 • [Key finding about bottom region challenges]
 • [Strategic implication of the gap]
 
-💊 PRESCRIPTION
+PRESCRIPTION
 Now: [Immediate action for top region] | [Immediate action for bottom region]
 Next: [Strategic initiative to close the gap - be specific about approach, not numbers]
 
-📈 PROGNOSIS
+PROGNOSIS
 ✓ [Best case outcome if actions are taken]
-⚠️ [Risk if regional imbalance is not addressed]
+[Risk if regional imbalance is not addressed]
 
 RULES:
 - Total output: 100-150 words MAX
@@ -384,26 +384,26 @@ forecast_prompt = PromptTemplate.from_template("""
 You are a strategic business analyst advising the CEO.
 Analyze the provided Sales Forecast data and provide a professional, actionable executive summary.
 
-### 📅 Global Forecast (Next 6 Months)
+### Global Forecast (Next 6 Months)
 {total_forecast}
 
-### 📦 Product Demand Signals
+### Product Demand Signals
 {item_forecast}
 
-### 🌍 Regional Opportunities
+### Regional Opportunities
 {territory_forecast}
 
-### 🎯 Strategic Analysis Task
+### Strategic Analysis Task
 1.  **Trend Diagnosis:** Analyze the month-over-month trajectory. Be specific about volume changes (e.g., "declining from X to Y").
 2.  **Driver Identification:** Identify WHICH specific products and regions are forecasted to have the highest volume. Do NOT say "no specific products" if data is present.
 3.  **Executive Recommendation:** Provide 2 clear, high-impact actions based on the specific high-volume items/regions identified above.
 
-### 📝 Output Format (Use Markdown)
+### Output Format (Use Markdown)
 
-### 📉 Forecast Trajectory
+### Forecast Trajectory
 [Concise trend assessment with specific numbers]
 
-### 🔑 Key Performance Drivers
+### Key Performance Drivers
 *   **Top Products:** [List specific product names and their forecasted volumes]
 *   **Regional Hotspots:** [List specific regions and their forecast volumes]
 
@@ -424,20 +424,20 @@ Trend: {trend_summary}
 
 OUTPUT FORMAT (MAX 150 WORDS):
 
-🔍 DIAGNOSIS
+DIAGNOSIS
 [One sentence: root cause]
 
 • [Metric 1 with % and insight]
 • [Metric 2 with % and insight]
 • [Metric 3 with % and insight]
 
-💊 PRESCRIPTION
+PRESCRIPTION
 Now: [Action 1] | [Action 2]
 Next: [Strategic initiative with quantified impact]
 
-📈 PROGNOSIS
+PROGNOSIS
 ✓ [Best case if followed]
-⚠️ [Risk % if ignored]
+[Risk % if ignored]
 
 RULES:
 - Total output: 100-150 words MAX

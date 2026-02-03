@@ -7,7 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 import ast
 from core.logging import get_logger
-from db.engine import db
+from db.engine import get_sync_db
 
 logger = get_logger(__name__)
 
@@ -154,8 +154,8 @@ def get_ytd_sales(
             unit_filter=unit_filter
         )
         
-        current_results = _parse_db_result(db.run(current_query))
-        last_results = _parse_db_result(db.run(last_query))
+        current_results = _parse_db_result(get_sync_db().run(current_query))
+        last_results = _parse_db_result(get_sync_db().run(last_query))
         
         if not current_results or not last_results:
             logger.warning("No YTD data found")
@@ -336,8 +336,8 @@ def get_mtd_stats(
             unit_filter=unit_filter
         )
         
-        current_results = _parse_db_result(db.run(current_query))
-        prev_results = _parse_db_result(db.run(prev_query))
+        current_results = _parse_db_result(get_sync_db().run(current_query))
+        prev_results = _parse_db_result(get_sync_db().run(prev_query))
         
         if not current_results or not prev_results:
             logger.warning("No MTD data found")

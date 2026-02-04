@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import MessageContent from "@/components/MessageContent";
 import ToastNotification from "@/components/ToastNotification";
 import {
@@ -14,7 +14,8 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  Brush
 } from "recharts";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -343,6 +344,16 @@ export default function Home() {
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummaryResponse | null>(null);
   const [forecastData, setForecastData] = useState<ForecastResponse | null>(null);
   const [rfmData, setRfmData] = useState<RFMAnalysisResponse | null>(null);
+
+  // Derived sorted segments for consistent ordering
+  const sortedSegments = useMemo(() => {
+    if (!rfmData?.segment_summary) return [];
+    const desiredOrder = ['Platinum', 'Gold', 'Silver', 'Occasional', 'Inactive'];
+    // Map desired order to data, finding corresponding segment (case-insensitive check)
+    return desiredOrder
+      .map(label => rfmData.segment_summary.find(s => s.segment.toLowerCase() === label.toLowerCase()))
+      .filter((item): item is RFMSegmentSummary => !!item);
+  }, [rfmData]);
 
   // AI Insights States
   const [regionalInsights, setRegionalInsights] = useState<string | null>(null);
@@ -1254,7 +1265,10 @@ export default function Home() {
             <div className="input-wrapper">
               <select
                 value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
+                onChange={(e) => {
+                  setSelectedYear(e.target.value);
+                  setSelectedMonth(""); // Clear month when year changes
+                }}
                 className="unit-select"
                 disabled={!selectedUnit}
               >
@@ -1565,6 +1579,7 @@ export default function Home() {
                           <YAxis stroke={mutedColor} tick={{ fontSize: 12 }} />
                           <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
                           <Line type="monotone" dataKey="qty" stroke="#10b981" strokeWidth={3} dot={false} />
+                          <Brush dataKey="month" height={30} stroke="#10b981" tickFormatter={(val) => val} />
                         </LineChart>
                       </ResponsiveContainer>
                     ) : <div className="loading-text">Loading Trend...</div>}
@@ -1619,7 +1634,9 @@ export default function Home() {
                       <div style={{ textAlign: 'right' }}>Contribution</div>
                     </div>
                     {regionalData?.top_regions?.slice(0, 5).map((r, i) => {
+                      {/* @ts-ignore */ }
                       const momValue = r.mom_percentage;
+                      {/* @ts-ignore */ }
                       const yotValue = r.yo_percentage;
                       const momText = (momValue === null || momValue === undefined) ? "n/a" : `${Number(momValue).toFixed(1)}%`;
                       const yotText = (yotValue === null || yotValue === undefined) ? "n/a" : `${Number(yotValue).toFixed(1)}%`;
@@ -1835,7 +1852,9 @@ export default function Home() {
                           </thead>
                           <tbody>
                             {areaData.top_areas.slice(0, 5).map((a, i) => {
+                              {/* @ts-ignore */ }
                               const momValue = a.mom_percentage;
+                              {/* @ts-ignore */ }
                               const yotValue = a.yo_percentage;
                               const momText = (momValue === null || momValue === undefined) ? "n/a" : `${Number(momValue).toFixed(1)}%`;
                               const yotText = (yotValue === null || yotValue === undefined) ? "n/a" : `${Number(yotValue).toFixed(1)}%`;
@@ -2163,12 +2182,13 @@ export default function Home() {
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={forecastData.global_chart}>
                               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                              <XAxis dataKey="month" stroke={mutedColor} />
+                              <XAxis dataKey="month" stroke={mutedColor} interval={0} />
                               <YAxis stroke={mutedColor} />
                               <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
                               <Legend />
-                              <Line type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={3} name="Actual Volume" />
-                              <Line type="monotone" dataKey="forecast" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" name="AI Forecast" />
+                              <Line type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={3} name="Actual Volume" connectNulls />
+                              <Line type="monotone" dataKey="forecast" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" name="AI Forecast" connectNulls />
+                              <Brush dataKey="month" height={30} stroke="#8884d8" />
                             </LineChart>
                           </ResponsiveContainer>
                         ) : (
@@ -2248,12 +2268,13 @@ export default function Home() {
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart data={selectedItem.chart}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                                <XAxis dataKey="month" stroke={mutedColor} />
+                                <XAxis dataKey="month" stroke={mutedColor} interval={0} />
                                 <YAxis stroke={mutedColor} />
                                 <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
                                 <Legend />
-                                <Line type="monotone" dataKey="actual" stroke="#10b981" strokeWidth={3} name="Actual" />
-                                <Line type="monotone" dataKey="forecast" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" name="Forecast" />
+                                <Line type="monotone" dataKey="actual" stroke="#10b981" strokeWidth={3} name="Actual" connectNulls />
+                                <Line type="monotone" dataKey="forecast" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" name="Forecast" connectNulls />
+                                <Brush dataKey="month" height={30} stroke="#8884d8" />
                               </LineChart>
                             </ResponsiveContainer>
                           );
@@ -2296,12 +2317,13 @@ export default function Home() {
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart data={selectedTerritory.chart}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                                <XAxis dataKey="month" stroke={mutedColor} />
+                                <XAxis dataKey="month" stroke={mutedColor} interval={0} />
                                 <YAxis stroke={mutedColor} />
                                 <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
                                 <Legend />
-                                <Line type="monotone" dataKey="actual" stroke="#ef4444" strokeWidth={3} name="Actual" />
-                                <Line type="monotone" dataKey="forecast" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" name="Forecast" />
+                                <Line type="monotone" dataKey="actual" stroke="#ef4444" strokeWidth={3} name="Actual" connectNulls />
+                                <Line type="monotone" dataKey="forecast" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" name="Forecast" connectNulls />
+                                <Brush dataKey="month" height={30} stroke="#8884d8" />
                               </LineChart>
                             </ResponsiveContainer>
                           );
@@ -2421,19 +2443,38 @@ export default function Home() {
                           {rfmData?.metadata.total_volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '0.875rem', fontWeight: 500, color: mutedColor }}>MT</span>
                         </div>
                       </div>
+
+
                     </div>
                   </div>
 
                 </div>
 
-                {/* Segment Breakdown Cards */}
+                {/* Segmentation Info / Legend */}
                 {rfmData?.segment_summary && rfmData.segment_summary.length > 0 && (
+                  <div className="panel dashboard-panel" style={{ marginBottom: '16px', padding: '12px 16px', background: 'rgba(59, 130, 246, 0.04)', borderLeft: '4px solid #3b82f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <i className="fa-solid fa-circle-info" style={{ color: '#3b82f6', marginTop: '3px' }}></i>
+                      <div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: textColor, marginBottom: '4px' }}>
+                          Customer Segmentation Guide
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: mutedColor, lineHeight: '1.4' }}>
+                          <span style={{ fontWeight: 600, color: '#b45309' }}>Platinum:</span> Top 10% best customers (High Volume & Frequency) •
+                          <span style={{ fontWeight: 600, color: '#f59e0b', marginLeft: '8px' }}>Gold:</span> High value, frequent buyers •
+                          <span style={{ fontWeight: 600, color: '#64748b', marginLeft: '8px' }}>Silver:</span> Steady, reliable volume •
+                          <span style={{ fontWeight: 600, color: '#0ea5e9', marginLeft: '8px' }}>Occasional:</span> Infrequent but active •
+                          <span style={{ fontWeight: 600, color: '#94a3b8', marginLeft: '8px' }}>Inactive:</span> No recent activity
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Segment Breakdown Cards */}
+                {sortedSegments.length > 0 && (
                   <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', marginBottom: '24px' }}>
-                    {rfmData.segment_summary
-                      .sort((a, b) => {
-                        const order: { [key: string]: number } = { 'Platinum': 0, 'Gold': 1, 'Silver': 2, 'Occasional': 3, 'Inactive': 4 };
-                        return order[a.segment] - order[b.segment];
-                      })
+                    {sortedSegments
                       .map((segment, index) => {
                         const segmentConfig: { [key: string]: { color: string, icon: string, gradient: string } } = {
                           'Platinum': { color: '#FFD700', icon: 'fa-crown', gradient: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)' },
@@ -2441,6 +2482,14 @@ export default function Home() {
                           'Silver': { color: '#C0C0C0', icon: 'fa-award', gradient: 'linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%)' },
                           'Occasional': { color: '#87CEEB', icon: 'fa-user-clock', gradient: 'linear-gradient(135deg, #87CEEB 0%, #4682B4 100%)' },
                           'Inactive': { color: '#D3D3D3', icon: 'fa-user-slash', gradient: 'linear-gradient(135deg, #D3D3D3 0%, #A9A9A9 100%)' }
+                        };
+
+                        const segmentNotes: { [key: string]: string } = {
+                          'Platinum': 'Top revenue & frequency',
+                          'Gold': 'High value & loyal',
+                          'Silver': 'Consistent customers',
+                          'Occasional': 'Sporadic purchases',
+                          'Inactive': 'No recent transactions'
                         };
                         const config = segmentConfig[segment.segment] || { color: '#3b82f6', icon: 'fa-user', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' };
 
@@ -2469,6 +2518,9 @@ export default function Home() {
                                 </div>
                                 <div style={{ fontSize: '0.875rem', fontWeight: 700, color: textColor }}>
                                   {segment.segment}
+                                  <div style={{ fontSize: '0.65rem', fontWeight: 400, color: mutedColor, marginTop: '2px' }}>
+                                    {segmentNotes[segment.segment]}
+                                  </div>
                                 </div>
                               </div>
                               <div style={{ marginBottom: '8px' }}>
@@ -2487,6 +2539,35 @@ export default function Home() {
                                 </div>
                               </div>
                             </div>
+                            <button
+                              onClick={() => {
+                                setSelectedSegment(segment.segment);
+                                // Scroll to table
+                                const tableElement = document.getElementById('customer-table-header');
+                                if (tableElement) tableElement.scrollIntoView({ behavior: 'smooth' });
+                              }}
+                              style={{
+                                marginTop: '12px',
+                                width: '100%',
+                                padding: '6px',
+                                background: 'rgba(255, 255, 255, 0.5)',
+                                border: '1px solid rgba(0,0,0,0.05)',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                color: textColor,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.8)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.5)'}
+                            >
+                              View List <i className="fa-solid fa-arrow-right" style={{ fontSize: '0.6rem' }}></i>
+                            </button>
                           </div>
                         );
                       })}
@@ -2501,11 +2582,11 @@ export default function Home() {
                       <h2>Customer Segment Distribution</h2>
                     </div>
                     <div style={{ height: '300px' }}>
-                      {rfmData?.segment_summary && rfmData.segment_summary.length > 0 ? (
+                      {sortedSegments.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
-                              data={rfmData.segment_summary}
+                              data={sortedSegments}
                               dataKey="customer_count"
                               nameKey="segment"
                               cx="50%"
@@ -2513,7 +2594,7 @@ export default function Home() {
                               outerRadius={100}
                               label={(entry: any) => `${entry.segment}: ${entry.customer_percentage}%`}
                             >
-                              {rfmData.segment_summary.map((entry, index) => {
+                              {sortedSegments.map((entry, index) => {
                                 const colors: { [key: string]: string } = {
                                   'Platinum': '#FFD700',
                                   'Gold': '#FFA500',
@@ -2545,11 +2626,11 @@ export default function Home() {
                       <h2>Volume Distribution by Segment</h2>
                     </div>
                     <div style={{ height: '300px' }}>
-                      {rfmData?.segment_summary && rfmData.segment_summary.length > 0 ? (
+                      {sortedSegments.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
-                              data={rfmData.segment_summary}
+                              data={sortedSegments}
                               dataKey="total_volume"
                               nameKey="segment"
                               cx="50%"
@@ -2557,7 +2638,7 @@ export default function Home() {
                               outerRadius={100}
                               label={(entry: any) => `${entry.segment}: ${entry.volume_percentage}%`}
                             >
-                              {rfmData.segment_summary.map((entry, index) => {
+                              {sortedSegments.map((entry, index) => {
                                 const colors: { [key: string]: string } = {
                                   'Platinum': '#FFD700',
                                   'Gold': '#FFA500',
@@ -2764,6 +2845,6 @@ export default function Home() {
 
         {toast && <ToastNotification message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </div>
-    </div>
+    </div >
   );
 }

@@ -5,8 +5,9 @@ from core.config import settings
 async_engine = create_async_engine(
     settings.ASYNC_DATABASE_URL,
     echo=False,
-    poolclass=NullPool,     
-
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=1800,
 )
 
 # Create async session factory

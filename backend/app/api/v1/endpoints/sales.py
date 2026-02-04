@@ -65,13 +65,24 @@ async def get_ytd_sales(
         raise HTTPException(status_code=404, detail=e.message)
     except DatabaseError as e:
         logger.error(f"Database error: {e.message}")
+        import traceback, sys
+        traceback.print_exc(file=sys.stderr)
         raise HTTPException(status_code=500, detail="Failed to retrieve sales data")
     except Exception as e:
-        import traceback
-        with open("debug_log.txt", "a") as f:
-            f.write(f"Error in ytd_sales: {str(e)}\n")
-            f.write(traceback.format_exc())
-            f.write("\n" + "-"*20 + "\n")
+        import traceback, sys
+        # Write to stderr so it appears in console logs
+        sys.stderr.write(f"Error in ytd_sales: {str(e)}\n")
+        traceback.print_exc(file=sys.stderr)
+        
+        # Also try to write to file if possible
+        try:
+            with open("/tmp/backend_debug.log", "a") as f:
+                f.write(f"Error in ytd_sales: {str(e)}\n")
+                f.write(traceback.format_exc())
+                f.write("\n" + "-"*20 + "\n")
+        except:
+            pass
+            
         logger.exception(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -94,7 +105,7 @@ async def get_mtd_stats(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/metrics", response_model=StandardResponse)
-@cache_response(expire=300)
+# @cache_response(expire=300)
 async def get_sales_metrics(
     unit_id: Optional[str] = Query(None),
     year: Optional[int] = Query(None),
@@ -102,9 +113,12 @@ async def get_sales_metrics(
     service: SalesService = Depends(get_sales_service)
 ):
     try:
+        print(f"DEBUG: get_sales_metrics called with year={year}, month={month}")
         data = await service.get_sales_metrics(unit_id, year, month)
         return StandardResponse(data=data)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/monthly-summary", response_model=StandardResponse)

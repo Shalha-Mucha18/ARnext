@@ -103,20 +103,25 @@ class SalesRepository:
         except Exception as e:
             raise DatabaseError(f"Error fetching MTD stats: {str(e)}")
 
-    async def get_monthly_trend(self, unit_id: Optional[int], limit: int = 12, end_date: Optional[date] = None) -> List[Dict[str, Any]]:
-        """Get last 12 months sales trend."""
+    async def get_monthly_trend(self, unit_id: Optional[int], limit: int = 12, end_date: Optional[date] = None, start_date: Optional[date] = None) -> List[Dict[str, Any]]:
+        """Get monthly sales trend. Defaults to last 12 months if start_date not provided."""
         try:
             uom_sql = get_uom_conversion_sql()
             unit_clause = "AND unit_id = :unit_id" if unit_id is not None else ""
             
             # Calculate start date in Python (1st day of month 11 months ago)
             # If end_date is 2024-12-31, we want 2024-01-01
-            target_end = end_date if end_date else date.today()
-            # First set to 1st of month
-            clean_end = target_end.replace(day=1)
-            # Subtract 11 months to get 12 month window including current
-            from dateutil.relativedelta import relativedelta
-            start_date = clean_end - relativedelta(months=11)
+            # If specific start_date provided, use it. Otherwise default to 12 month window.
+            if start_date:
+                 query_start = start_date
+            else:
+                 target_end = end_date if end_date else date.today()
+                 clean_end = target_end.replace(day=1)
+                 from dateutil.relativedelta import relativedelta
+                 query_start = clean_end - relativedelta(months=11)
+            
+            # Ensure filtering works
+            query_end = end_date if end_date else date.today()
             
             query = text(f"""
                 SELECT
@@ -133,8 +138,8 @@ class SalesRepository:
             """)
             
             params = {
-                "start_date": start_date, 
-                "end_date": target_end
+                "start_date": query_start, 
+                "end_date": query_end
             }
             if unit_id is not None:
                 params["unit_id"] = unit_id

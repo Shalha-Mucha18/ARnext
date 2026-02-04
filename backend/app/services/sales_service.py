@@ -35,8 +35,17 @@ class SalesService:
         # Use provided year or default to current year
         target_year = year if year else today.year
         
-        # YTD always means: January 1 → Today (or Dec 31 for past years)
-        if target_year < today.year:
+        # Determine comparison date (end of period)
+        if month:
+            # If month provided, end at end of that month
+            import calendar
+            last_day = calendar.monthrange(target_year, month)[1]
+            compare_date = date(target_year, month, last_day)
+            
+            # If asking for future month in current year, cap at today
+            if compare_date > today:
+                compare_date = today
+        elif target_year < today.year:
             # Past year: Jan 1 → Dec 31 of that year
             compare_date = date(target_year, 12, 31)
         elif target_year == today.year:
@@ -178,13 +187,39 @@ class SalesService:
         else: end = date(target_year, target_month + 1, 1)
         
         
-        # Trend needs to end at the selected month
-        import calendar
-        last_day = calendar.monthrange(target_year, target_month)[1]
-        trend_cutoff = date(target_year, target_month, last_day)
+        # Trend Logic - Enforce Year-Based View (Jan-Dec)
+        # User requested: "depends only year and show 12 month quantity for that year"
+        # Regardless of whether a month is selected or not, the Trend Chart shows the full year context.
+        
+        target_year_for_trend = year if year else today.year
+        
+        # Always Jan 1 to Dec 31 of the target year
+        trend_start = date(target_year_for_trend, 1, 1)
+        trend_end = date(target_year_for_trend, 12, 31)
+
+        print(f"DEBUG: Trend Date Range -> Start: {trend_start}, End: {trend_end}")
 
         current = await self.repository.get_mtd_stats(start, end, unit_id_int)
-        trend = await self.repository.get_monthly_trend(unit_id_int, end_date=trend_cutoff)
+        raw_trend = await self.repository.get_monthly_trend(unit_id_int, end_date=trend_end, start_date=trend_start)
+        
+        # Zero-fill missing months to ensure chart always shows Jan-Dec
+        trend = []
+        existing_data = {item['month']: item for item in raw_trend}
+        
+        for m in range(1, 13):
+            month_str = f"{target_year_for_trend}-{str(m).zfill(2)}"
+            if month_str in existing_data:
+                trend.append(existing_data[month_str])
+            else:
+                trend.append({
+                    "month": month_str,
+                    "qty": 0.0,
+                    "order_count": 0,
+                    "uom": "Units" # Default
+                })
+        
+        # Double check sorting just in case
+        trend.sort(key=lambda x: x['month'])
         
         return {
             "current_month": {

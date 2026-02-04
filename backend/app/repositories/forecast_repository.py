@@ -21,8 +21,8 @@ class ForecastRepository:
                 WHERE 1=1
                   {unit_filter}
                   AND "Type" != 'Forecasted'
-                  AND "Date" >= date_trunc('month', CURRENT_DATE) - INTERVAL '12 months'
-                  AND "Date" < date_trunc('month', CURRENT_DATE)
+                  AND "Date" >= '2022-01-01'
+                  AND "Date" <= '2026-12-31'
                   AND "Date" IS NOT NULL
                 GROUP BY month
                 ORDER BY month ASC
@@ -36,8 +36,8 @@ class ForecastRepository:
                 FROM "AIL_Monthly_Total_Forecast"
                 WHERE "Type" = 'Forecasted'
                   {unit_filter}
-                  AND "Date" >= date_trunc('month', CURRENT_DATE)
-                  AND "Date" < date_trunc('month', CURRENT_DATE) + INTERVAL '5 months'
+                  AND "Date" >= '2022-01-01'
+                  AND "Date" <= '2026-12-31'
                   AND "Date" IS NOT NULL
                 GROUP BY month
                 ORDER BY month ASC
@@ -89,8 +89,8 @@ class ForecastRepository:
                 FROM "AIL_Monthly_Total_Item" 
                 WHERE "Item_Name" = ANY(:names)
                 {unit_filter}
-                AND "Date" >= date_trunc('month', CURRENT_DATE) - INTERVAL '12 months'
-                AND "Date" < date_trunc('month', CURRENT_DATE) + INTERVAL '6 months'
+                AND "Date" >= '2022-01-01'
+                AND "Date" <= '2026-12-31'
                 AND "Date" IS NOT NULL
                 GROUP BY 1, 2, 3
                 ORDER BY 3 ASC
@@ -134,8 +134,8 @@ class ForecastRepository:
                 FROM "AIL_Monthly_Total_Final_Territory"
                 WHERE "Territory" = ANY(:names)
                 {unit_filter}
-                AND "Date" >= date_trunc('month', CURRENT_DATE) - INTERVAL '12 months'
-                AND "Date" < date_trunc('month', CURRENT_DATE) + INTERVAL '6 months'
+                AND "Date" >= '2022-01-01'
+                AND "Date" <= '2026-12-31'
                 AND "Date" IS NOT NULL
                 GROUP BY 1, 2, 3
                 ORDER BY 3 ASC

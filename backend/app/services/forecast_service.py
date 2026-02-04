@@ -78,9 +78,19 @@ class ForecastService:
 
     def _merge_data(self, actual_rows: List, forecast_rows: List) -> List[ChartPoint]:
         data_map = {}
-        for row in actual_rows:
+        
+        # Track the last actual point to stitch the lines
+        last_actual_month = None
+        last_actual_qty = None
+        
+        # Ensure actuals are sorted to find the true last point
+        sorted_actuals = sorted(actual_rows, key=lambda x: x[0])
+        
+        for row in sorted_actuals:
             m, qty = row[0], float(row[1] or 0)
             data_map[m] = {"month": m, "actual": qty, "forecast": None}
+            last_actual_month = m
+            last_actual_qty = qty
             
         # Process Forecasts
         for row in forecast_rows:
@@ -89,6 +99,15 @@ class ForecastService:
                 data_map[m]["forecast"] = qty 
             else:
                 data_map[m] = {"month": m, "actual": None, "forecast": qty}
+        
+        # GAP FIX: Stitch the lines together
+        # Set the forecast value for the last actual month to the actual quantity.
+        # This makes the forecast line start exactly where the actual line ends.
+        if last_actual_month and last_actual_qty is not None:
+            # Only if a forecast doesn't already exist that might overwrite it (though equal is fine)
+            # Check if we have a gap (next month is start of forecast)
+            if data_map[last_actual_month]["forecast"] is None:
+                 data_map[last_actual_month]["forecast"] = last_actual_qty
         
         sorted_keys = sorted(data_map.keys())
         return [ChartPoint(**data_map[k]) for k in sorted_keys]

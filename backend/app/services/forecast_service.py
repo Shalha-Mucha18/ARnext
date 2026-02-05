@@ -100,12 +100,7 @@ class ForecastService:
             else:
                 data_map[m] = {"month": m, "actual": None, "forecast": qty}
         
-        # GAP FIX: Stitch the lines together
-        # Set the forecast value for the last actual month to the actual quantity.
-        # This makes the forecast line start exactly where the actual line ends.
         if last_actual_month and last_actual_qty is not None:
-            # Only if a forecast doesn't already exist that might overwrite it (though equal is fine)
-            # Check if we have a gap (next month is start of forecast)
             if data_map[last_actual_month]["forecast"] is None:
                  data_map[last_actual_month]["forecast"] = last_actual_qty
         

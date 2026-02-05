@@ -186,11 +186,6 @@ class SalesService:
         if target_month == 12: end = date(target_year + 1, 1, 1)
         else: end = date(target_year, target_month + 1, 1)
         
-        
-        # Trend Logic - Enforce Year-Based View (Jan-Dec)
-        # User requested: "depends only year and show 12 month quantity for that year"
-        # Regardless of whether a month is selected or not, the Trend Chart shows the full year context.
-        
         target_year_for_trend = year if year else today.year
         
         # Always Jan 1 to Dec 31 of the target year
@@ -202,11 +197,31 @@ class SalesService:
         current = await self.repository.get_mtd_stats(start, end, unit_id_int)
         raw_trend = await self.repository.get_monthly_trend(unit_id_int, end_date=trend_end, start_date=trend_start)
         
-        # Zero-fill missing months to ensure chart always shows Jan-Dec
+        # Zero-fill missing months, but only up to current month for current year
         trend = []
         existing_data = {item['month']: item for item in raw_trend}
         
-        for m in range(1, 13):
+        # Determine the last month to show
+        current_date = date.today()
+        if target_year_for_trend < current_date.year:
+            # Past year: show all 12 months
+            last_month = 12
+        elif target_year_for_trend == current_date.year:
+            # Current year: only show up to current month
+            last_month = current_date.month
+        else:
+            # Future year: show no months (shouldn't happen, but safe)
+            last_month = 0
+        
+        # Get UOM from existing data or determine from unit_id
+        if raw_trend:
+            default_uom = raw_trend[0].get('uom', 'Units')
+        elif unit_id_int in [4, 144, 188, 189, 232]:
+            default_uom = 'MT'
+        else:
+            default_uom = 'Units'
+        
+        for m in range(1, last_month + 1):
             month_str = f"{target_year_for_trend}-{str(m).zfill(2)}"
             if month_str in existing_data:
                 trend.append(existing_data[month_str])
@@ -215,7 +230,7 @@ class SalesService:
                     "month": month_str,
                     "qty": 0.0,
                     "order_count": 0,
-                    "uom": "Units" # Default
+                    "uom": default_uom
                 })
         
         # Double check sorting just in case

@@ -7,8 +7,8 @@ class TerritoryMetric(BaseModel):
     orders: int
     uom: str
     quantity_percentage: float
-    mom_percentage: Optional[float] = None  # Month-over-Month growth %
-    yo_percentage: Optional[float] = None   # Year-over-Year growth % 
+    mom_percentage: Optional[float] = None  
+    yo_percentage: Optional[float] = None
 
 class RegionalResponse(BaseModel):
     top_territories: List[TerritoryMetric]

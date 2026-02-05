@@ -1,6 +1,3 @@
-"""
-Business units endpoints.
-"""
 from fastapi import APIRouter, HTTPException
 from typing import List, Dict
 from app.repositories import units_repo
@@ -21,7 +18,7 @@ from app.utils.cache import cache_response
 router = APIRouter()
 
 @router.get("/", response_model=StandardResponse)
-@cache_response(expire=3600) # Cache units for 1 hour as they rarely change
+@cache_response(expire=3600)
 async def get_units(db: AsyncSession = Depends(get_db)):
     """
     Get list of all business units with their IDs and names.

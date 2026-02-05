@@ -27,7 +27,6 @@ _db_instance = None
 
 def get_sync_db() -> SQLDatabase:
     """
-    Lazy load the synchronous database connection.
     This prevents the app from crashing at startup if the DB is full.
     Connection is only established when this function is first called.
     """

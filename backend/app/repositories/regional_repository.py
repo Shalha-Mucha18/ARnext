@@ -22,10 +22,6 @@ class RegionalRepository:
             print(f"DEBUG: Executing get_territory_performance, start={start_date}, end={end_date}")
             data = await self._get_aggregated_performance("territory", start_date, end_date, unit_id)
             
-            # Map keys to match existing schema
-            # Helper returns 'top_territorys' (dumb pluralization), we need 'top_territories'
-            # Helper items have 'percentage', we need 'quantity_percentage'
-            
             def map_items(items):
                 mapped = []
                 for item in items:

@@ -19,8 +19,6 @@ async_session_maker = async_sessionmaker(
     autoflush=False,
 )
 
-
-
 import asyncio
 from typing import AsyncGenerator
 

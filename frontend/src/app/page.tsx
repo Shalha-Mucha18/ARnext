@@ -387,6 +387,7 @@ export default function Home() {
   const [selectedForecastItem, setSelectedForecastItem] = useState<string | null>(null);
   const [selectedForecastTerritory, setSelectedForecastTerritory] = useState<string | null>(null);
   const [selectedSegment, setSelectedSegment] = useState<string>('All');
+  const [loadedDataCache, setLoadedDataCache] = useState<{ [key: string]: { overview: boolean, forecast: boolean, rfm: boolean } }>({});
 
   const endRef = useRef<HTMLDivElement | null>(null);
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -419,7 +420,7 @@ export default function Home() {
         const res = await fetch(`${apiBase}/api/v1/units/`);
         if (res.ok) {
           const response = await res.json();
-          const data = response.data || response; // Unwrap StandardResponse
+          const data = response.data || response;
           setUnits(data);
           localStorage.setItem("units_cache", JSON.stringify(data));
 
@@ -484,7 +485,7 @@ export default function Home() {
       setAvailableYears(years);
       setSelectedYear("2026");
     }
-  }, [useFiscalYear]); // Re-run when fiscal year toggle changes
+  }, [useFiscalYear]);
 
   // Persist fiscal year preference
   useEffect(() => {
@@ -494,7 +495,6 @@ export default function Home() {
   }, [useFiscalYear]);
 
   // Render Section replacement
-  // This section was commented out and is now removed as per instruction.
 
   // Load Data
   useEffect(() => {
@@ -517,7 +517,24 @@ export default function Home() {
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
-          setSalesMetrics(data.data || data);
+          const salesData = data.data || data;
+
+          // Filter out future months from sales_trend
+          if (salesData.sales_trend) {
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth() + 1; // 1-indexed
+
+            salesData.sales_trend = salesData.sales_trend.filter((item: any) => {
+              const [year, month] = item.month.split('-').map(Number);
+              // Keep if past year, or current year but not future month
+              return year < currentYear || (year === currentYear && month <= currentMonth);
+            });
+
+            console.log('Filtered sales_trend:', salesData.sales_trend);
+          }
+
+          setSalesMetrics(salesData);
         }
       } catch (e) {
         if (e instanceof Error && e.name !== 'AbortError') console.error(e);
@@ -741,11 +758,11 @@ export default function Home() {
           url.searchParams.append("year", selectedYear);
         }
 
-        console.log("Fetching YTD from:", url.toString()); // DEBUG
+        console.log("Fetching YTD from:", url.toString());
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
-          console.log("YTD Data:", data); // DEBUG
+          console.log("YTD Data:", data);
           setYtdStats(data.data || data);
         } else {
           console.error("YTD Fetch Failed:", res.status, res.statusText);
@@ -837,18 +854,44 @@ export default function Home() {
       }
     };
 
+    // Track what data has been loaded for current filter combination
+    const cacheKey = `${selectedUnit || 'all'}-${selectedMonth || selectedYear || 'all'}-${useFiscalYear}`;
+
+    const isDataCached = (section: string) => {
+      return loadedDataCache[cacheKey]?.[section as keyof typeof loadedDataCache[typeof cacheKey]] || false;
+    };
+
+    const markDataCached = (section: string) => {
+      setLoadedDataCache(prev => ({
+        ...prev,
+        [cacheKey]: {
+          ...prev[cacheKey],
+          [section]: true
+        }
+      }));
+    };
+
     if (activeSection === 'overview') {
-      setIsDataLoading(true);
-      Promise.all([loadSales(), loadRegional(), loadAreaData(), loadCredit(), loadCustomerData(), loadConcentration(), loadTerritories(), loadYtdStats(), loadMtdStats(), loadMonthlySummary()])
-        .finally(() => setIsDataLoading(false));
+      if (!isDataCached('overview')) {
+        setIsDataLoading(true);
+        Promise.all([loadSales(), loadRegional(), loadAreaData(), loadCredit(), loadCustomerData(), loadConcentration(), loadTerritories(), loadYtdStats(), loadMtdStats(), loadMonthlySummary()])
+          .then(() => markDataCached('overview'))
+          .finally(() => setIsDataLoading(false));
+      }
     } else if (activeSection === 'forecast') {
-      setIsDataLoading(true);
-      loadForecast()
-        .finally(() => setIsDataLoading(false));
+      if (!isDataCached('forecast')) {
+        setIsDataLoading(true);
+        loadForecast()
+          .then(() => markDataCached('forecast'))
+          .finally(() => setIsDataLoading(false));
+      }
     } else if (activeSection === 'market-intelligence') {
-      setIsDataLoading(true);
-      loadRFM()
-        .finally(() => setIsDataLoading(false));
+      if (!isDataCached('rfm')) {
+        setIsDataLoading(true);
+        loadRFM()
+          .then(() => markDataCached('rfm'))
+          .finally(() => setIsDataLoading(false));
+      }
     }
 
     return () => controller.abort();
@@ -1573,13 +1616,59 @@ export default function Home() {
                   <div style={{ height: '300px' }}>
                     {salesMetrics?.sales_trend ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={salesMetrics.sales_trend}>
+                        <LineChart data={salesMetrics.sales_trend} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                          <XAxis dataKey="month" stroke={mutedColor} tick={{ fontSize: 12 }} />
-                          <YAxis stroke={mutedColor} tick={{ fontSize: 12 }} />
-                          <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
-                          <Line type="monotone" dataKey="qty" stroke="#10b981" strokeWidth={3} dot={false} />
-                          <Brush dataKey="month" height={30} stroke="#10b981" tickFormatter={(val) => val} />
+                          <XAxis
+                            dataKey="month"
+                            stroke={mutedColor}
+                            tick={{ fontSize: 12 }}
+                          />
+                          <YAxis
+                            stroke={mutedColor}
+                            tick={{ fontSize: 12 }}
+                            label={{
+                              value: 'Quantity',
+                              angle: -90,
+                              position: 'insideLeft',
+                              style: { fill: mutedColor, fontSize: 12 }
+                            }}
+                          />
+                          <RechartsTooltip
+                            contentStyle={{
+                              backgroundColor: tooltipBg,
+                              border: `1px solid ${tooltipBorder}`,
+                              borderRadius: '8px',
+                              padding: '8px 12px'
+                            }}
+                            itemStyle={{ color: textColor }}
+                            labelFormatter={(value) => {
+                              const [year, month] = value.split('-');
+                              const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                              return `${monthNames[parseInt(month) - 1]} ${year}`;
+                            }}
+                            formatter={(value: number) => [value.toLocaleString(), 'Quantity']}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="qty"
+                            stroke="#10b981"
+                            strokeWidth={3}
+                            dot={{ fill: '#10b981', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                            activeDot={{ r: 7, strokeWidth: 2 }}
+                            fill="url(#colorQty)"
+                          />
+                          <Brush
+                            dataKey="month"
+                            height={30}
+                            stroke="#10b981"
+                            fill="rgba(16, 185, 129, 0.1)"
+                          />
                         </LineChart>
                       </ResponsiveContainer>
                     ) : <div className="loading-text">Loading Trend...</div>}
@@ -2182,7 +2271,21 @@ export default function Home() {
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={forecastData.global_chart}>
                               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                              <XAxis dataKey="month" stroke={mutedColor} interval={0} />
+                              <XAxis
+                                dataKey="month"
+                                stroke={mutedColor}
+                                tickFormatter={(value) => {
+                                  try {
+                                    const date = new Date(value);
+                                    const y = date.getFullYear();
+                                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                                    return `${y}-${m}`;
+                                  } catch (e) {
+                                    return value;
+                                  }
+                                }}
+                                minTickGap={30}
+                              />
                               <YAxis stroke={mutedColor} />
                               <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
                               <Legend />
@@ -2268,7 +2371,21 @@ export default function Home() {
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart data={selectedItem.chart}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                                <XAxis dataKey="month" stroke={mutedColor} interval={0} />
+                                <XAxis
+                                  dataKey="month"
+                                  stroke={mutedColor}
+                                  tickFormatter={(value) => {
+                                    try {
+                                      const date = new Date(value);
+                                      const y = date.getFullYear();
+                                      const m = String(date.getMonth() + 1).padStart(2, '0');
+                                      return `${y}-${m}`;
+                                    } catch (e) {
+                                      return value;
+                                    }
+                                  }}
+                                  minTickGap={30}
+                                />
                                 <YAxis stroke={mutedColor} />
                                 <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
                                 <Legend />
@@ -2317,7 +2434,21 @@ export default function Home() {
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart data={selectedTerritory.chart}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                                <XAxis dataKey="month" stroke={mutedColor} interval={0} />
+                                <XAxis
+                                  dataKey="month"
+                                  stroke={mutedColor}
+                                  tickFormatter={(value) => {
+                                    try {
+                                      const date = new Date(value);
+                                      const y = date.getFullYear();
+                                      const m = String(date.getMonth() + 1).padStart(2, '0');
+                                      return `${y}-${m}`;
+                                    } catch (e) {
+                                      return value;
+                                    }
+                                  }}
+                                  minTickGap={30}
+                                />
                                 <YAxis stroke={mutedColor} />
                                 <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
                                 <Legend />

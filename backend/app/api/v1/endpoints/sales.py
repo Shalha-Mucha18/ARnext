@@ -105,7 +105,7 @@ async def get_mtd_stats(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/metrics", response_model=StandardResponse)
-# @cache_response(expire=300)
+@cache_response(expire=300)
 async def get_sales_metrics(
     unit_id: Optional[str] = Query(None),
     year: Optional[int] = Query(None),

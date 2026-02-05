@@ -108,10 +108,6 @@ class SalesRepository:
         try:
             uom_sql = get_uom_conversion_sql()
             unit_clause = "AND unit_id = :unit_id" if unit_id is not None else ""
-            
-            # Calculate start date in Python (1st day of month 11 months ago)
-            # If end_date is 2024-12-31, we want 2024-01-01
-            # If specific start_date provided, use it. Otherwise default to 12 month window.
             if start_date:
                  query_start = start_date
             else:

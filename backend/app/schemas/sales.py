@@ -32,6 +32,7 @@ class SalesTrendResponse(BaseModel):
     trend_data: List[TrendPoint]
     analysis: Optional[Dict] = None
 
+
 class MonthlyMetricsResponse(BaseModel):
     current_month: Dict
     previous_month: Dict

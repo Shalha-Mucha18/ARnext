@@ -12,7 +12,7 @@ async def get_forecast_service(db: AsyncSession = Depends(get_db)) -> ForecastSe
     return ForecastService(db)
 
 @router.get("", response_model=StandardResponse)
-# @cache_response(expire=300)
+@cache_response(expire=300)
 async def get_forecast(
     unit_id: Optional[str] = Query(None),
     service: ForecastService = Depends(get_forecast_service)

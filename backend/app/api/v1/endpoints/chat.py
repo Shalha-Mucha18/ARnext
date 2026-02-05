@@ -8,7 +8,7 @@ router = APIRouter()
 @router.post("", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
-    core = Depends(get_core) # Dependency Injection
+    core = Depends(get_core) 
 ):
     """
     Chat with the AI Analytics Assistant.

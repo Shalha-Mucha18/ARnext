@@ -13,7 +13,7 @@ router = APIRouter()
     response_model=StandardResponse[RegionalResponse],
     summary="Get Top/Bottom Territories"
 )
-# @cache_response(expire=300)
+@cache_response(expire=300)
 async def get_top_territories(
     unit_id: Optional[int] = Query(None),
     year: Optional[int] = Query(None),
@@ -64,15 +64,10 @@ async def generate_regional_insights(
     month: Optional[int] = Query(None),
     service: RegionalService = Depends(get_regional_service)
 ):
-    """
-    Generate AI insights for regional sales performance.
-    Analyzes top and bottom regions to provide strategic recommendations.
-    """
     try:
         from llm.chain import SalesGPTCore
         from llm.client import get_llm
         
-        # Get regional contribution data
         regional_data = await service.get_regional_contribution(unit_id, year, month)
         
         top_regions = regional_data.get("top_regions", [])

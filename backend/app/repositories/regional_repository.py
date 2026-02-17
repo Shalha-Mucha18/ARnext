@@ -32,8 +32,8 @@ class RegionalRepository:
                         "quantity": item["quantity"],
                         "orders": item["orders"],
                         "quantity_percentage": item.get("percentage", 0),
-                        "mom_percentage": item.get("mom_percentage"),  # Preserve MoM
-                        "yo_percentage": item.get("yo_percentage")      # Preserve YoY
+                        "mom_percentage": item.get("mom_percentage"),  
+                        "yo_percentage": item.get("yo_percentage")      
                     }
                     mapped.append(mapped_item)
                 return mapped
@@ -111,12 +111,10 @@ class RegionalRepository:
                     "quantity": float(row.quantity or 0),
                     "orders": int(row.total_orders),
                     "percentage": float(row.pct or 0),
-                    "mom_percentage": None, # Default
-                    "yo_percentage": None   # Default
+                    "mom_percentage": None, 
+                    "yo_percentage": None   
                 })
 
-            # MOM: Previous Month
-            # YOT: Same Period Last Year
             
             # Ensure dates are datetime.date objects
             if not hasattr(start_date, 'year'):

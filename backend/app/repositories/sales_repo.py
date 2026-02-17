@@ -1,4 +1,4 @@
-"""
+ """
 Sales repository - handles all sales-related data access. This module provides secure, centralized access to sales data with proper
 error handling and logging.
 """

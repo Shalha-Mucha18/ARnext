@@ -83,24 +83,26 @@ class ForecastService:
         last_actual_month = None
         last_actual_qty = None
         
-        # Ensure actuals are sorted to find the true last point
+        # Ensure actuals are sorted
         sorted_actuals = sorted(actual_rows, key=lambda x: x[0])
         
+        # First pass: Add all actual data
         for row in sorted_actuals:
             m, qty = row[0], float(row[1] or 0)
             data_map[m] = {"month": m, "actual": qty, "forecast": None}
             last_actual_month = m
             last_actual_qty = qty
             
-        # Process Forecasts
+        # Second pass: Add forecast data ONLY for months without actual data
         for row in forecast_rows:
             m, qty = row[0], float(row[1] or 0)
-            if m in data_map:
-                data_map[m]["forecast"] = qty 
-            else:
+            # Only add forecast if this month doesn't have actual data
+            if m not in data_map:
                 data_map[m] = {"month": m, "actual": None, "forecast": qty}
         
+        # Stitch the lines: Add forecast value to the last actual month for smooth transition
         if last_actual_month and last_actual_qty is not None:
+            # Only add stitching point if it's still None (no forecast data for that month)
             if data_map[last_actual_month]["forecast"] is None:
                  data_map[last_actual_month]["forecast"] = last_actual_qty
         

@@ -496,6 +496,15 @@ export default function Home() {
 
   // Render Section replacement
 
+  // Reset selected forecast item when data changes
+  useEffect(() => {
+    if (forecastData?.items_charts && forecastData.items_charts.length > 0) {
+      setSelectedForecastItem(forecastData.items_charts[0].name);
+    } else {
+      setSelectedForecastItem(null);
+    }
+  }, [forecastData]);
+
   // Load Data
   useEffect(() => {
     const controller = new AbortController();
@@ -741,6 +750,8 @@ export default function Home() {
         if (e instanceof Error && e.name !== 'AbortError') console.error(e);
       }
     };
+
+
 
 
     const loadYtdStats = async () => {
@@ -2287,7 +2298,31 @@ export default function Home() {
                                 minTickGap={30}
                               />
                               <YAxis stroke={mutedColor} />
-                              <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
+                              <RechartsTooltip
+                                content={({ active, payload, label }) => {
+                                  if (active && payload && payload.length) {
+                                    // Filter out forecast if actual exists
+                                    const hasActual = payload.some(p => p.dataKey === 'actual' && p.value !== null);
+                                    const filteredPayload = hasActual
+                                      ? payload.filter(p => p.dataKey !== 'forecast')
+                                      : payload;
+
+                                    if (filteredPayload.length === 0) return null;
+
+                                    return (
+                                      <div style={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, padding: '10px', borderRadius: '4px' }}>
+                                        <p style={{ color: textColor, margin: '0 0 5px 0' }}>{label}</p>
+                                        {filteredPayload.map((entry: any, index: number) => (
+                                          <p key={index} style={{ color: entry.color, margin: 0, padding: '2px 0' }}>
+                                            {entry.name}: {entry.value != null ? Number(entry.value).toLocaleString(undefined, { maximumFractionDigits: 2 }) : ''}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
                               <Legend />
                               <Line type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={3} name="Actual Volume" connectNulls />
                               <Line type="monotone" dataKey="forecast" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" name="AI Forecast" connectNulls />
@@ -2387,7 +2422,31 @@ export default function Home() {
                                   minTickGap={30}
                                 />
                                 <YAxis stroke={mutedColor} />
-                                <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
+                                <RechartsTooltip
+                                  content={({ active, payload, label }) => {
+                                    if (active && payload && payload.length) {
+                                      // Filter out forecast if actual exists
+                                      const hasActual = payload.some(p => p.dataKey === 'actual' && p.value !== null);
+                                      const filteredPayload = hasActual
+                                        ? payload.filter(p => p.dataKey !== 'forecast')
+                                        : payload;
+
+                                      if (filteredPayload.length === 0) return null;
+
+                                      return (
+                                        <div style={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, padding: '10px', borderRadius: '4px' }}>
+                                          <p style={{ color: textColor, margin: '0 0 5px 0' }}>{label}</p>
+                                          {filteredPayload.map((entry: any, index: number) => (
+                                            <p key={index} style={{ color: entry.color, margin: 0, padding: '2px 0' }}>
+                                              {entry.name}: {entry.value != null ? Number(entry.value).toLocaleString(undefined, { maximumFractionDigits: 2 }) : ''}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  }}
+                                />
                                 <Legend />
                                 <Line type="monotone" dataKey="actual" stroke="#10b981" strokeWidth={3} name="Actual" connectNulls />
                                 <Line type="monotone" dataKey="forecast" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" name="Forecast" connectNulls />
@@ -2450,7 +2509,31 @@ export default function Home() {
                                   minTickGap={30}
                                 />
                                 <YAxis stroke={mutedColor} />
-                                <RechartsTooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}` }} itemStyle={{ color: textColor }} />
+                                <RechartsTooltip
+                                  content={({ active, payload, label }) => {
+                                    if (active && payload && payload.length) {
+                                      // Filter out forecast if actual exists
+                                      const hasActual = payload.some(p => p.dataKey === 'actual' && p.value !== null);
+                                      const filteredPayload = hasActual
+                                        ? payload.filter(p => p.dataKey !== 'forecast')
+                                        : payload;
+
+                                      if (filteredPayload.length === 0) return null;
+
+                                      return (
+                                        <div style={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, padding: '10px', borderRadius: '4px' }}>
+                                          <p style={{ color: textColor, margin: '0 0 5px 0' }}>{label}</p>
+                                          {filteredPayload.map((entry: any, index: number) => (
+                                            <p key={index} style={{ color: entry.color, margin: 0, padding: '2px 0' }}>
+                                              {entry.name}: {entry.value != null ? Number(entry.value).toLocaleString(undefined, { maximumFractionDigits: 2 }) : ''}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  }}
+                                />
                                 <Legend />
                                 <Line type="monotone" dataKey="actual" stroke="#ef4444" strokeWidth={3} name="Actual" connectNulls />
                                 <Line type="monotone" dataKey="forecast" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" name="Forecast" connectNulls />
@@ -2818,14 +2901,14 @@ export default function Home() {
                     <div style={{ overflowX: 'auto', maxHeight: '400px', overflowY: 'auto' }}>
                       {rfmData?.customers && rfmData.customers.length > 0 ? (
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-primary)', zIndex: 1 }}>
+                          <thead style={{ position: 'sticky', top: 0, background: theme === 'dark' ? '#1a1a1a' : '#ffffff', zIndex: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                              <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Customer</th>
-                              <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600 }}>Segment</th>
-                              <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Recency (days)</th>
-                              <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Frequency</th>
-                              <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Volume</th>
-                              <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>RFM Score</th>
+                              <th style={{ padding: '16px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Customer</th>
+                              <th style={{ padding: '16px 12px', textAlign: 'center', fontWeight: 600, whiteSpace: 'nowrap' }}>Segment</th>
+                              <th style={{ padding: '16px 12px', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>Recency (days)</th>
+                              <th style={{ padding: '16px 12px', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>Frequency</th>
+                              <th style={{ padding: '16px 12px', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>Volume</th>
+                              <th style={{ padding: '16px 12px', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>RFM Score</th>
                             </tr>
                           </thead>
                           <tbody>

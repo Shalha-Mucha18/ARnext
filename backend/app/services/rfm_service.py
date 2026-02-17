@@ -55,7 +55,7 @@ class RFMService:
         if rfm_df.empty:
             return []
         
-        segment_summary = rfm_df.groupby('Customer_segment').agg({
+        segment_summary = rfm_df.groupby('Customer_segment', observed=False).agg({
             'customer_id': 'count',
             'Frequency': 'sum',
             'Monetary': 'sum',
